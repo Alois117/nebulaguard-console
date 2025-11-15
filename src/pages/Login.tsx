@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,9 +100,9 @@ const Login = () => {
                 <input type="checkbox" className="rounded border-border bg-surface/50" />
                 <span className="text-muted-foreground">Remember me</span>
               </label>
-              <button type="button" className="text-primary hover:text-primary/80 transition-colors">
+              <Link to="/forgot-password" className="text-primary hover:text-primary/80 transition-colors">
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             <Button
@@ -116,9 +116,9 @@ const Login = () => {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <button className="text-primary hover:text-primary/80 transition-colors font-medium">
-              Request Access
-            </button>
+            <Link to="/signup" className="text-primary hover:text-primary/80 transition-colors font-medium">
+              Sign up
+            </Link>
           </div>
         </Card>
 

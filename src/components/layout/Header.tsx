@@ -1,6 +1,7 @@
 import { Bell, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import WebSocketIndicator from "@/components/WebSocketIndicator";
 
 const Header = () => {
   return (
@@ -19,6 +20,8 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-4 ml-6">
+          <WebSocketIndicator />
+          
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative hover:bg-surface">
             <Bell className="w-5 h-5" />
