@@ -6,6 +6,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import TwoFASetup from "./pages/TwoFASetup";
+import TwoFAVerify from "./pages/TwoFAVerify";
+import Settings from "./pages/Settings";
+import HostDetail from "./pages/HostDetail";
 import Dashboard from "./pages/Dashboard";
 import Hosts from "./pages/Hosts";
 import Problems from "./pages/Problems";
@@ -40,8 +45,12 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/2fa/setup" element={<TwoFASetup />} />
+          <Route path="/2fa/verify" element={<TwoFAVerify />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/hosts" element={<ProtectedRoute><Hosts /></ProtectedRoute>} />
+          <Route path="/hosts/:id" element={<ProtectedRoute><HostDetail /></ProtectedRoute>} />
           <Route path="/problems" element={<ProtectedRoute><Problems /></ProtectedRoute>} />
           <Route path="/traps" element={<ProtectedRoute><Traps /></ProtectedRoute>} />
           <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
@@ -52,7 +61,7 @@ const App = () => (
           <Route path="/admin/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
           <Route path="/admin/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
           <Route path="/admin/security-logs" element={<ProtectedRoute><SecurityLogs /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
