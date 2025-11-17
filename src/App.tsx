@@ -9,31 +9,39 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import TwoFASetup from "./pages/TwoFASetup";
 import TwoFAVerify from "./pages/TwoFAVerify";
-import Settings from "./pages/Settings";
-import HostDetail from "./pages/HostDetail";
-import Dashboard from "./pages/Dashboard";
-import Hosts from "./pages/Hosts";
-import Problems from "./pages/Problems";
-import Traps from "./pages/Traps";
-import Insights from "./pages/Insights";
-import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import FloatingAIChat from "./components/ai/FloatingAIChat";
 import CommandPalette from "./components/CommandPalette";
-import OrgAdmin from "./pages/admin/OrgAdmin";
-import SuperAdmin from "./pages/admin/SuperAdmin";
+import RoleBasedRoute from "./components/rbac/RoleBasedRoute";
+
+// User Pages
+import UserDashboard from "./pages/user/UserDashboard";
+import UserHosts from "./pages/user/UserHosts";
+import UserHostDetail from "./pages/user/UserHostDetail";
+import UserProblems from "./pages/user/UserProblems";
+import UserTraps from "./pages/user/UserTraps";
+import UserInsights from "./pages/user/UserInsights";
+import UserReports from "./pages/user/UserReports";
+import UserSettings from "./pages/user/UserSettings";
+
+// Org Admin Pages
+import OrgAdminDashboard from "./pages/org-admin/OrgAdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import Billing from "./pages/admin/Billing";
-import Organizations from "./pages/admin/Organizations";
+import UsageMeters from "./pages/org-admin/UsageMeters";
+import AlertConfiguration from "./pages/org-admin/AlertConfiguration";
+import OnCallSchedules from "./pages/org-admin/OnCallSchedules";
+import ZabbixHosts from "./pages/org-admin/ZabbixHosts";
+import MaintenanceWindows from "./pages/org-admin/MaintenanceWindows";
+import AISettings from "./pages/org-admin/AISettings";
+
+// Super Admin Pages
+import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
+import Organizations from "./pages/super-admin/Organizations";
 import SecurityLogs from "./pages/admin/SecurityLogs";
+import FeatureFlagsPage from "./pages/super-admin/FeatureFlagsPage";
 
 const queryClient = new QueryClient();
-
-// Simple auth check
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem("nebula_auth") === "true";
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -48,21 +56,35 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/2fa/setup" element={<TwoFASetup />} />
           <Route path="/2fa/verify" element={<TwoFAVerify />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/hosts" element={<ProtectedRoute><Hosts /></ProtectedRoute>} />
-          <Route path="/hosts/:id" element={<ProtectedRoute><HostDetail /></ProtectedRoute>} />
-          <Route path="/problems" element={<ProtectedRoute><Problems /></ProtectedRoute>} />
-          <Route path="/traps" element={<ProtectedRoute><Traps /></ProtectedRoute>} />
-          <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="/admin/org" element={<ProtectedRoute><OrgAdmin /></ProtectedRoute>} />
-          <Route path="/admin/super" element={<ProtectedRoute><SuperAdmin /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-          <Route path="/admin/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-          <Route path="/admin/organizations" element={<ProtectedRoute><Organizations /></ProtectedRoute>} />
-          <Route path="/admin/security-logs" element={<ProtectedRoute><SecurityLogs /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          
+          {/* User Routes */}
+          <Route path="/dashboard" element={<RoleBasedRoute requiredRole="user"><UserDashboard /></RoleBasedRoute>} />
+          <Route path="/dashboard/hosts" element={<RoleBasedRoute requiredRole="user"><UserHosts /></RoleBasedRoute>} />
+          <Route path="/dashboard/hosts/:id" element={<RoleBasedRoute requiredRole="user"><UserHostDetail /></RoleBasedRoute>} />
+          <Route path="/dashboard/problems" element={<RoleBasedRoute requiredRole="user"><UserProblems /></RoleBasedRoute>} />
+          <Route path="/dashboard/traps" element={<RoleBasedRoute requiredRole="user"><UserTraps /></RoleBasedRoute>} />
+          <Route path="/dashboard/insights" element={<RoleBasedRoute requiredRole="user"><UserInsights /></RoleBasedRoute>} />
+          <Route path="/dashboard/reports" element={<RoleBasedRoute requiredRole="user"><UserReports /></RoleBasedRoute>} />
+          <Route path="/dashboard/settings" element={<RoleBasedRoute requiredRole="user"><UserSettings /></RoleBasedRoute>} />
+          
+          {/* Org Admin Routes */}
+          <Route path="/admin" element={<RoleBasedRoute requiredRole="org_admin"><OrgAdminDashboard /></RoleBasedRoute>} />
+          <Route path="/admin/users" element={<RoleBasedRoute requiredRole="org_admin"><UserManagement /></RoleBasedRoute>} />
+          <Route path="/admin/billing" element={<RoleBasedRoute requiredRole="org_admin"><Billing /></RoleBasedRoute>} />
+          <Route path="/admin/usage" element={<RoleBasedRoute requiredRole="org_admin"><UsageMeters /></RoleBasedRoute>} />
+          <Route path="/admin/alerts" element={<RoleBasedRoute requiredRole="org_admin"><AlertConfiguration /></RoleBasedRoute>} />
+          <Route path="/admin/oncall" element={<RoleBasedRoute requiredRole="org_admin"><OnCallSchedules /></RoleBasedRoute>} />
+          <Route path="/admin/zabbix" element={<RoleBasedRoute requiredRole="org_admin"><ZabbixHosts /></RoleBasedRoute>} />
+          <Route path="/admin/maintenance" element={<RoleBasedRoute requiredRole="org_admin"><MaintenanceWindows /></RoleBasedRoute>} />
+          <Route path="/admin/ai" element={<RoleBasedRoute requiredRole="org_admin"><AISettings /></RoleBasedRoute>} />
+          
+          {/* Super Admin Routes */}
+          <Route path="/super-admin" element={<RoleBasedRoute requiredRole="super_admin"><SuperAdminDashboard /></RoleBasedRoute>} />
+          <Route path="/super-admin/organizations" element={<RoleBasedRoute requiredRole="super_admin"><Organizations /></RoleBasedRoute>} />
+          <Route path="/super-admin/security-logs" element={<RoleBasedRoute requiredRole="super_admin"><SecurityLogs /></RoleBasedRoute>} />
+          <Route path="/super-admin/features" element={<RoleBasedRoute requiredRole="super_admin"><FeatureFlagsPage /></RoleBasedRoute>} />
+          
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <CommandPalette />
