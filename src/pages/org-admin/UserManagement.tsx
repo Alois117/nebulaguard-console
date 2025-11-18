@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import AppLayout from "@/components/layout/AppLayout";
+import OrgAdminLayout from "@/layouts/OrgAdminLayout";
 
 const UserManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,7 +36,7 @@ const UserManagement = () => {
   );
 
   return (
-    <AppLayout>
+    <OrgAdminLayout>
       <div className="p-8 animate-fade-in">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -132,7 +132,7 @@ const UserManagement = () => {
           </Table>
         </div>
       </div>
-    </AppLayout>
+    </OrgAdminLayout>
   );
 };
 
