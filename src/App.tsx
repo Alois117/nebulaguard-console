@@ -26,8 +26,8 @@ import UserSettings from "./pages/user/UserSettings";
 
 // Org Admin Pages
 import OrgAdminDashboard from "./pages/org-admin/OrgAdminDashboard";
-import UserManagement from "./pages/admin/UserManagement";
-import Billing from "./pages/admin/Billing";
+import UserManagement from "./pages/org-admin/UserManagement";
+import Billing from "./pages/org-admin/Billing";
 import UsageMeters from "./pages/org-admin/UsageMeters";
 import AlertConfiguration from "./pages/org-admin/AlertConfiguration";
 import OnCallSchedules from "./pages/org-admin/OnCallSchedules";
@@ -39,7 +39,7 @@ import AISettings from "./pages/org-admin/AISettings";
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
 import Organizations from "./pages/super-admin/Organizations";
 import GlobalAnalytics from "./pages/super-admin/GlobalAnalytics";
-import SecurityLogs from "./pages/admin/SecurityLogs";
+import SecurityLogs from "./pages/super-admin/SecurityLogs";
 import MultiTenantBilling from "./pages/super-admin/MultiTenantBilling";
 import DisasterRecovery from "./pages/super-admin/DisasterRecovery";
 import AIMLPerformance from "./pages/super-admin/AIMLPerformance";
