@@ -35,6 +35,21 @@ export const setAuthUser = (user: AuthUser) => {
   }
 };
 
+export const mockLogin = (email: string, password: string, role: UserRole): AuthUser | null => {
+  // Mock login - in production, this would validate against backend
+  if (email && password) {
+    const user: AuthUser = {
+      id: `user_${Date.now()}`,
+      email,
+      role,
+      organizationId: role !== 'user' ? `org_${Date.now()}` : undefined
+    };
+    setAuthUser(user);
+    return user;
+  }
+  return null;
+};
+
 export const clearAuth = () => {
   localStorage.removeItem("nebula_auth");
   localStorage.removeItem("nebula_role");

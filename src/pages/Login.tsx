@@ -4,25 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield, Zap, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { mockLogin, UserRole } from "@/utils/auth";
 
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("user");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Mock login
     setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem("nebula_auth", "true");
-        toast.success("Welcome to NebulaGuard™");
-        navigate("/");
+      const user = mockLogin(email, password, role);
+      if (user) {
+        toast.success(`Welcome to NebulaGuard™ (${role})`);
+        // Navigate to role-specific dashboard
+        if (role === 'super_admin') {
+          navigate("/super-admin");
+        } else if (role === 'org_admin') {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         toast.error("Please enter credentials");
       }
@@ -93,6 +102,20 @@ const Login = () => {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role" className="text-foreground">Role (Dev/Testing)</Label>
+              <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
+                <SelectTrigger className="bg-surface/50 border-border/50 focus:border-primary">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="org_admin">Org Admin</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center justify-between text-sm">

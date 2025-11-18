@@ -38,8 +38,13 @@ import AISettings from "./pages/org-admin/AISettings";
 // Super Admin Pages
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
 import Organizations from "./pages/super-admin/Organizations";
+import GlobalAnalytics from "./pages/super-admin/GlobalAnalytics";
 import SecurityLogs from "./pages/admin/SecurityLogs";
+import MultiTenantBilling from "./pages/super-admin/MultiTenantBilling";
+import DisasterRecovery from "./pages/super-admin/DisasterRecovery";
+import AIMLPerformance from "./pages/super-admin/AIMLPerformance";
 import FeatureFlagsPage from "./pages/super-admin/FeatureFlagsPage";
+import ResellerPortal from "./pages/super-admin/ResellerPortal";
 
 const queryClient = new QueryClient();
 
@@ -81,8 +86,13 @@ const App = () => (
           {/* Super Admin Routes */}
           <Route path="/super-admin" element={<RoleBasedRoute requiredRole="super_admin"><SuperAdminDashboard /></RoleBasedRoute>} />
           <Route path="/super-admin/organizations" element={<RoleBasedRoute requiredRole="super_admin"><Organizations /></RoleBasedRoute>} />
+          <Route path="/super-admin/analytics" element={<RoleBasedRoute requiredRole="super_admin"><GlobalAnalytics /></RoleBasedRoute>} />
           <Route path="/super-admin/security-logs" element={<RoleBasedRoute requiredRole="super_admin"><SecurityLogs /></RoleBasedRoute>} />
+          <Route path="/super-admin/billing" element={<RoleBasedRoute requiredRole="super_admin"><MultiTenantBilling /></RoleBasedRoute>} />
+          <Route path="/super-admin/recovery" element={<RoleBasedRoute requiredRole="super_admin"><DisasterRecovery /></RoleBasedRoute>} />
+          <Route path="/super-admin/aiml" element={<RoleBasedRoute requiredRole="super_admin"><AIMLPerformance /></RoleBasedRoute>} />
           <Route path="/super-admin/features" element={<RoleBasedRoute requiredRole="super_admin"><FeatureFlagsPage /></RoleBasedRoute>} />
+          <Route path="/super-admin/reseller" element={<RoleBasedRoute requiredRole="super_admin"><ResellerPortal /></RoleBasedRoute>} />
           
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<NotFound />} />
