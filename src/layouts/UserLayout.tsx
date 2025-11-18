@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Bell, Search, User, LayoutDashboard, Server, AlertTriangle, Radio, Lightbulb, FileText, Settings } from "lucide-react";
+import { Bell, Search, User, LayoutDashboard, Server, AlertTriangle, Radio, Lightbulb, FileText, Settings, Shield, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
@@ -28,15 +28,17 @@ const UserLayout = ({ children }: UserLayoutProps) => {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-screen w-64 bg-card/80 backdrop-blur-lg border-r border-border z-50">
         <div className="p-6">
+          {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <Server className="w-6 h-6 text-background" />
+            <div className="relative">
+              <Shield className="w-8 h-8 text-primary" />
+              <Zap className="w-4 h-4 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 NebulaGuard
               </h1>
-              <p className="text-xs text-muted-foreground">User Portal</p>
+              <p className="text-xs text-muted-foreground">AI Monitoring</p>
             </div>
           </div>
 

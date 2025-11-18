@@ -1,81 +1,197 @@
+import { useState } from "react";
 import UserLayout from "@/layouts/UserLayout";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { User, Bell, Shield, Save, Globe, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const UserSettings = () => {
+  const [theme, setTheme] = useState("dark");
+  const [language, setLanguage] = useState("en");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+  const [telegramNotifications, setTelegramNotifications] = useState(true);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  const handleSaveProfile = () => {
+    toast.success("Profile updated successfully!");
+  };
+
+  const handleSaveNotifications = () => {
+    toast.success("Notification preferences saved!");
+  };
+
+  const handleSaveSecurity = () => {
+    toast.success("Security settings updated!");
+  };
+
   return (
     <UserLayout>
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Settings
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your account and preferences
-          </p>
+      <div className="p-8 animate-fade-in">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gradient mb-2">Settings</h1>
+          <p className="text-muted-foreground">Manage your account settings and preferences</p>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsList className="glass-card border-primary/20">
+            <TabsTrigger value="profile" className="gap-2">
+              <User className="w-4 h-4" />
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2">
+              <Bell className="w-4 h-4" />
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <Shield className="w-4 h-4" />
+              Security
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile">
-            <Card className="p-6 bg-card/50 backdrop-blur border-border/50">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" placeholder="John Doe" className="mt-1" />
+          {/* Profile Settings */}
+          <TabsContent value="profile" className="space-y-6">
+            <Card className="glass-card border-primary/20">
+              <CardHeader>
+                <CardTitle>Profile Information</CardTitle>
+                <CardDescription>Update your personal information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" defaultValue="John" className="glass-input" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" defaultValue="Doe" className="glass-input" />
+                  </div>
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="john@example.com" className="mt-1" />
+                  <Input id="email" type="email" defaultValue="john.doe@nebulaguard.com" className="glass-input" />
                 </div>
-                <Button>Save Changes</Button>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" className="glass-input" />
+                </div>
+                <Button onClick={handleSaveProfile} className="neon-button">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+              </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="notifications">
-            <Card className="p-6 bg-card/50 backdrop-blur border-border/50">
-              <div className="space-y-4">
+          {/* Notifications */}
+          <TabsContent value="notifications" className="space-y-6">
+            <Card className="glass-card border-primary/20">
+              <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+                <CardDescription>Choose how you want to be notified</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Email Notifications</p>
-                    <p className="text-sm text-muted-foreground">Receive email alerts for problems</p>
+                  <div className="space-y-0.5">
+                    <Label>Email Notifications</Label>
+                    <p className="text-sm text-muted-foreground">Receive alerts via email</p>
                   </div>
-                  <Switch />
+                  <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
                 </div>
+                <Separator />
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">SMS Alerts</p>
+                  <div className="space-y-0.5">
+                    <Label>Push Notifications</Label>
+                    <p className="text-sm text-muted-foreground">Browser push notifications</p>
+                  </div>
+                  <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>SMS Alerts</Label>
                     <p className="text-sm text-muted-foreground">Receive SMS for critical issues</p>
                   </div>
+                  <Switch checked={smsNotifications} onCheckedChange={setSmsNotifications} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>
+                      <MessageCircle className="w-4 h-4 inline mr-2" />
+                      Telegram Alerts
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Get notifications in Telegram</p>
+                  </div>
+                  <Switch checked={telegramNotifications} onCheckedChange={setTelegramNotifications} />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Critical Alerts Only</Label>
+                    <p className="text-sm text-muted-foreground">Only notify for high-severity issues</p>
+                  </div>
                   <Switch />
                 </div>
-              </div>
+                <Button onClick={handleSaveNotifications} className="neon-button">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Preferences
+                </Button>
+              </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="security">
-            <Card className="p-6 bg-card/50 backdrop-blur border-border/50">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" className="mt-1" />
+          {/* Security */}
+          <TabsContent value="security" className="space-y-6">
+            <Card className="glass-card border-primary/20">
+              <CardHeader>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>Manage your account security</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Change Password</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Input type="password" placeholder="Current password" className="glass-input" />
+                    <Input type="password" placeholder="New password" className="glass-input" />
+                    <Input type="password" placeholder="Confirm password" className="glass-input" />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" className="mt-1" />
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Two-Factor Authentication</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {twoFactorEnabled ? "2FA is enabled" : "Add an extra layer of security"}
+                    </p>
+                  </div>
+                  <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
                 </div>
-                <Button>Update Password</Button>
-              </div>
+                <Separator />
+                <div className="space-y-2">
+                  <Label>Active Sessions</Label>
+                  <div className="p-4 glass-card border border-border rounded-lg space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">Current Session</p>
+                        <p className="text-sm text-muted-foreground">Chrome on Windows • 192.168.1.1</p>
+                      </div>
+                      <span className="text-xs text-success">Active</span>
+                    </div>
+                  </div>
+                </div>
+                <Button onClick={handleSaveSecurity} className="neon-button">
+                  <Save className="w-4 h-4 mr-2" />
+                  Update Security
+                </Button>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
