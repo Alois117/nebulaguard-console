@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { FiCheck, FiCalendar } from "react-icons/fi";
+import { FiCheck } from "react-icons/fi";
+import { InlineWidget } from "react-calendly";
 
 const features = [
   "Unlimited hosts monitoring",
@@ -14,7 +15,7 @@ const features = [
 
 const Pricing = () => {
   return (
-    <section className="relative py-32 overflow-hidden">
+    <section id="pricing" className="relative py-32 overflow-hidden">
       <div className="max-w-4xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -88,50 +89,55 @@ const Pricing = () => {
                 </motion.div>
               ))}
             </div>
-
-            {/* CTA */}
-            <button className="w-full py-5 bg-gradient-to-r from-[#00f0ff] via-[#d900ff] to-[#ff006e] rounded-2xl text-lg font-bold text-background hover:shadow-[0_0_40px_rgba(0,240,255,0.6)] transition-all hover:scale-105 flex items-center justify-center gap-3">
-              <FiCalendar className="w-5 h-5" />
-              Book 15 Min Demo Call
-            </button>
-
-            {/* Trust message */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.5 }}
-              className="text-center mt-6 text-muted-foreground"
-            >
-              No credit card required · 14-day free trial · Cancel anytime
-            </motion.p>
           </div>
-
-          {/* Neon glow effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#00f0ff] via-[#d900ff] to-[#ff006e] opacity-20 blur-2xl -z-10" />
         </motion.div>
 
-        {/* Value proposition */}
+        {/* Calendly Integration */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.3 }}
-          className="mt-12 text-center"
+          className="mt-16 glass-card rounded-3xl p-8 border-2 border-secondary/30"
         >
-          <p className="text-lg text-muted-foreground mb-4">
-            Used by 532+ teams worldwide
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            {["30-day money-back guarantee", "Dedicated account manager", "Custom integrations available"].map((item, i) => (
-              <span
-                key={item}
-                className="px-4 py-2 glass-card rounded-full border border-[#00f0ff]/30 text-sm text-foreground"
-              >
-                {item}
-              </span>
-            ))}
+          <h3 className="text-3xl font-bold text-center mb-8">
+            <span className="bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
+              Book Your 15-Minute Demo
+            </span>
+          </h3>
+          <div className="rounded-2xl overflow-hidden">
+            <InlineWidget
+              url="https://calendly.com/nebulaguard/demo"
+              styles={{ height: "700px", minWidth: "320px" }}
+            />
           </div>
+        </motion.div>
+
+        {/* Value propositions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+          className="mt-12 grid md:grid-cols-3 gap-6"
+        >
+          {[
+            { title: "ROI Guarantee", desc: "See positive ROI in 30 days or get a full refund" },
+            { title: "Free Migration", desc: "Our team handles the entire migration process" },
+            { title: "Cancel Anytime", desc: "No contracts, no commitments, cancel with one click" }
+          ].map((item, i) => (
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5 + i * 0.1 }}
+              className="glass-surface p-6 rounded-2xl border border-border/30 text-center"
+            >
+              <h4 className="text-lg font-bold text-primary mb-2">{item.title}</h4>
+              <p className="text-sm text-muted-foreground">{item.desc}</p>
+            </motion.div>
+          ))}
         </motion.div>
       </div>
     </section>

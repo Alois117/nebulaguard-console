@@ -12,6 +12,9 @@
     --background: 229 58% 10%;
     --foreground: 0 0% 100%;
     
+    /* Theme transitions */
+    transition: background-color 0.3s ease, color 0.3s ease;
+    
     --card: 230 40% 12%;
     --card-foreground: 0 0% 100%;
     
