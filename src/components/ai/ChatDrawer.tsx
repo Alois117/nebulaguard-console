@@ -68,7 +68,7 @@ const ChatDrawer = ({ isOpen, onClose }: ChatDrawerProps) => {
           </div>
           <div>
             <h3 className="font-semibold text-sm">AI Assistant</h3>
-            <p className="text-xs text-muted-foreground">NebulaGuard AI</p>
+            <p className="text-xs text-muted-foreground">Jarvis AI</p>
           </div>
         </div>
         <ModelSelector />
