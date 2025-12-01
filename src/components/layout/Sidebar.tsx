@@ -14,7 +14,7 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Server, label: "Hosts", path: "/hosts" },
-  { icon: AlertTriangle, label: "Problems", path: "/problems" },
+  { icon: AlertTriangle, label: "Alerts", path: "/alerts" },
   { icon: Radio, label: "Traps", path: "/traps" },
   { icon: Lightbulb, label: "Insights", path: "/insights" },
   { icon: FileText, label: "Reports", path: "/reports" },

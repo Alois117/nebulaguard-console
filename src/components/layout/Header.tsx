@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import WebSocketIndicator from "@/components/WebSocketIndicator";
+import ThemeToggle from "@/components/ThemeToggle";
 import { clearAuth, getAuthUser } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
 
@@ -38,7 +38,7 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-4 ml-6">
-          <WebSocketIndicator />
+          <ThemeToggle />
           
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative hover:bg-surface">

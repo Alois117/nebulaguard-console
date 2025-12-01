@@ -3,7 +3,7 @@ import { Bell, Search, User, LayoutDashboard, Users, CreditCard, BarChart3, Aler
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
-import WebSocketIndicator from "@/components/WebSocketIndicator";
+import ThemeToggle from "@/components/ThemeToggle";
 import { getAuthUser } from "@/utils/auth";
 
 interface OrgAdminLayoutProps {
@@ -83,7 +83,7 @@ const OrgAdminLayout = ({ children }: OrgAdminLayoutProps) => {
             </div>
 
             <div className="flex items-center gap-4 ml-6">
-              <WebSocketIndicator />
+              <ThemeToggle />
               
               <Button variant="ghost" size="icon" className="relative hover:bg-surface">
                 <Bell className="w-5 h-5" />

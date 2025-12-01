@@ -3,7 +3,7 @@ import { Bell, Search, User, LayoutDashboard, Server, AlertTriangle, Radio, Ligh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
-import WebSocketIndicator from "@/components/WebSocketIndicator";
+import ThemeToggle from "@/components/ThemeToggle";
 import { getAuthUser } from "@/utils/auth";
 
 interface UserLayoutProps {
@@ -13,7 +13,7 @@ interface UserLayoutProps {
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Server, label: "Hosts", path: "/dashboard/hosts" },
-  { icon: AlertTriangle, label: "Problems", path: "/dashboard/problems" },
+  { icon: AlertTriangle, label: "Alerts", path: "/dashboard/alerts" },
   { icon: Radio, label: "Traps", path: "/dashboard/traps" },
   { icon: Lightbulb, label: "Insights", path: "/dashboard/insights" },
   { icon: FileText, label: "Reports", path: "/dashboard/reports" },
@@ -81,7 +81,7 @@ const UserLayout = ({ children }: UserLayoutProps) => {
             </div>
 
             <div className="flex items-center gap-4 ml-6">
-              <WebSocketIndicator />
+              <ThemeToggle />
               
               <Button variant="ghost" size="icon" className="relative hover:bg-surface">
                 <Bell className="w-5 h-5" />
