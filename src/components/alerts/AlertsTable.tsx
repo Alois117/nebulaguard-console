@@ -98,7 +98,7 @@ const AlertsTable = ({ alerts = mockAlerts, loading = false }: AlertsTableProps)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const totalPages = Math.ceil(alerts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
