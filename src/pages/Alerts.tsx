@@ -22,11 +22,23 @@ const Alerts = () => {
     // TODO: Implement acknowledge all logic
   };
 
-  // Mock counts for summary cards
-  const criticalCount = 1;
-  const highCount = 2;
-  const warningCount = 2;
-  const acknowledgedCount = 2;
+  // Mock alerts data (same as AlertsTable)
+  const alertsData = [
+    { id: 1, severity: "critical", acknowledged: false },
+    { id: 2, severity: "high", acknowledged: false },
+    { id: 3, severity: "high", acknowledged: true },
+    { id: 4, severity: "warning", acknowledged: false },
+    { id: 5, severity: "warning", acknowledged: true },
+    { id: 6, severity: "disaster", acknowledged: false },
+    { id: 7, severity: "average", acknowledged: false },
+    { id: 8, severity: "info", acknowledged: true },
+  ];
+
+  // Calculate counts dynamically
+  const criticalCount = alertsData.filter(a => a.severity === "critical" || a.severity === "disaster").length;
+  const highCount = alertsData.filter(a => a.severity === "high").length;
+  const warningCount = alertsData.filter(a => a.severity === "warning").length;
+  const acknowledgedCount = alertsData.filter(a => a.acknowledged).length;
 
   return (
     <AppLayout>
@@ -35,7 +47,7 @@ const Alerts = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">Alerts</h1>
-            <p className="text-muted-foreground">5 active alerts</p>
+            <p className="text-muted-foreground">{alertsData.length} active alerts</p>
           </div>
           <Button 
             onClick={handleAcknowledgeAll}
