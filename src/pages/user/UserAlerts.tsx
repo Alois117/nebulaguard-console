@@ -69,6 +69,42 @@ const mockAlerts: Alert[] = [
     status: "acknowledged",
     timestamp: "2024-01-15 13:58:15"
   },
+  {
+    id: 6,
+    severity: "disaster",
+    host: "prod-db-master",
+    category: "Database",
+    scope: "Production",
+    problem: "Database replication lag critical - 45s",
+    duration: "8m",
+    acknowledged: false,
+    status: "active",
+    timestamp: "2024-01-15 14:20:00"
+  },
+  {
+    id: 7,
+    severity: "average",
+    host: "backup-server-01",
+    category: "Backup",
+    scope: "Production",
+    problem: "Backup job completed with warnings",
+    duration: "1h 15m",
+    acknowledged: false,
+    status: "active",
+    timestamp: "2024-01-15 13:13:00"
+  },
+  {
+    id: 8,
+    severity: "info",
+    host: "monitoring-agent-02",
+    category: "System",
+    scope: "Staging",
+    problem: "Agent reconnected after network timeout",
+    duration: "45m",
+    acknowledged: true,
+    status: "acknowledged",
+    timestamp: "2024-01-15 13:43:00"
+  },
 ];
 
 const UserAlerts = () => {
@@ -81,6 +117,12 @@ const UserAlerts = () => {
   const [showAcknowledged, setShowAcknowledged] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Calculate counts from mock data
+  const criticalCount = mockAlerts.filter(a => a.severity === "critical" || a.severity === "disaster").length;
+  const highCount = mockAlerts.filter(a => a.severity === "high").length;
+  const warningCount = mockAlerts.filter(a => a.severity === "warning").length;
+  const acknowledgedCount = mockAlerts.filter(a => a.acknowledged).length;
+
   return (
     <UserLayout>
       <div className="space-y-6 animate-fade-in">
@@ -88,7 +130,6 @@ const UserAlerts = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">Alerts</h1>
-            <p className="text-muted-foreground">Monitor and manage active alerts</p>
             <p className="text-muted-foreground">{mockAlerts.length} active alerts</p>
           </div>
           <Button className="bg-gradient-to-r from-success to-primary hover:opacity-90 text-background">
@@ -97,28 +138,67 @@ const UserAlerts = () => {
           </Button>
         </div>
 
-        {/* Search and Filters */}
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="Search alerts..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+        {/* Top Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="cyber-card border-destructive/30 bg-gradient-to-br from-destructive/20 to-destructive/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Critical</p>
+                <p className="text-3xl font-bold">{criticalCount}</p>
+              </div>
             </div>
-            <AlertFilters
-              selectedSeverities={selectedSeverities}
-              onSeverityChange={setSelectedSeverities}
-              showAcknowledged={showAcknowledged}
-              onShowAcknowledgedChange={setShowAcknowledged}
-            />
           </div>
 
-          {/* Alerts Table */}
-          <AlertsTable />
+          <div className="cyber-card border-accent/30 bg-gradient-to-br from-accent/20 to-accent/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">High</p>
+                <p className="text-3xl font-bold">{highCount}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="cyber-card border-warning/30 bg-gradient-to-br from-warning/20 to-warning/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Warning</p>
+                <p className="text-3xl font-bold">{warningCount}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="cyber-card border-success/30 bg-gradient-to-br from-success/20 to-success/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Acknowledged</p>
+                <p className="text-3xl font-bold">{acknowledgedCount}</p>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Search and Filters */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Search alerts..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <AlertFilters
+            selectedSeverities={selectedSeverities}
+            onSeverityChange={setSelectedSeverities}
+            showAcknowledged={showAcknowledged}
+            onShowAcknowledgedChange={setShowAcknowledged}
+          />
+        </div>
+
+        {/* Alerts Table */}
+        <AlertsTable />
+      </div>
         
     </UserLayout>
   );

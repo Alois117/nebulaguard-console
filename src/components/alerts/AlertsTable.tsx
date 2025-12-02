@@ -29,7 +29,7 @@ export interface Alert {
   timestamp: string;
 }
 
-// Mock data
+// Mock data - 8 alerts for pagination testing
 const mockAlerts: Alert[] = [
   {
     id: 1,
@@ -85,6 +85,39 @@ const mockAlerts: Alert[] = [
     acknowledged: true,
     status: "acknowledged",
     timestamp: "2025-11-30 13:56:00",
+  },
+  {
+    id: 6,
+    severity: "disaster",
+    host: "prod-db-master",
+    category: "Database",
+    problem: "Database replication lag critical - 45s",
+    duration: "8m",
+    acknowledged: false,
+    status: "active",
+    timestamp: "2025-11-30 14:20:00",
+  },
+  {
+    id: 7,
+    severity: "average",
+    host: "backup-server-01",
+    category: "Backup",
+    problem: "Backup job completed with warnings",
+    duration: "1h 15m",
+    acknowledged: false,
+    status: "active",
+    timestamp: "2025-11-30 13:13:00",
+  },
+  {
+    id: 8,
+    severity: "info",
+    host: "monitoring-agent-02",
+    category: "System",
+    problem: "Agent reconnected after network timeout",
+    duration: "45m",
+    acknowledged: true,
+    status: "acknowledged",
+    timestamp: "2025-11-30 13:43:00",
   },
 ];
 
