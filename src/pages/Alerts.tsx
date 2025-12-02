@@ -2,98 +2,31 @@ import { useState } from "react";
 import { CheckCircle } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import AlertsTable, { Alert } from "@/components/alerts/AlertsTable";
-import AlertDetailDrawer from "@/components/alerts/AlertDetailDrawer";
-import AlertFilters, { AlertFiltersState } from "@/components/alerts/AlertFilters";
-
-const mockAlerts: Alert[] = [
-  {
-    id: 1,
-    severity: "critical",
-    host: "api-gateway-01",
-    category: "Performance",
-    scope: "Production",
-    problem: "Disk space critical - 95% full",
-    duration: "5m",
-    status: "active",
-    timestamp: "2024-01-15 14:23:45"
-  },
-  {
-    id: 2,
-    severity: "high",
-    host: "prod-web-01",
-    category: "System",
-    scope: "Production",
-    problem: "High CPU usage detected - 92%",
-    duration: "12m",
-    status: "active",
-    timestamp: "2024-01-15 14:18:22"
-  },
-  {
-    id: 3,
-    severity: "high",
-    host: "db-master-01",
-    category: "Database",
-    scope: "Production",
-    problem: "Slow query performance detected",
-    duration: "18m",
-    status: "acknowledged",
-    timestamp: "2024-01-15 14:12:10"
-  },
-  {
-    id: 4,
-    severity: "warning",
-    host: "cache-redis-03",
-    category: "Memory",
-    scope: "Staging",
-    problem: "Memory pressure warning - 78%",
-    duration: "25m",
-    status: "active",
-    timestamp: "2024-01-15 14:05:33"
-  },
-  {
-    id: 5,
-    severity: "warning",
-    host: "worker-queue-02",
-    category: "Queue",
-    scope: "Production",
-    problem: "Queue processing delay detected",
-    duration: "32m",
-    status: "acknowledged",
-    timestamp: "2024-01-15 13:58:15"
-  },
-];
+import AlertsTable from "@/components/alerts/AlertsTable";
+import AlertFilters from "@/components/alerts/AlertFilters";
+import { AlertSeverity } from "@/components/alerts/SeverityBadge";
 
 const Alerts = () => {
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState<AlertFiltersState>({
-    searchQuery: "",
-    severities: [],
-    hosts: [],
-    timeRange: "24h"
-  });
-
-  const handleAlertClick = (alert: Alert) => {
-    setSelectedAlert(alert);
-    setIsDrawerOpen(true);
-  };
-
-  const handleAcknowledge = (id: number) => {
-    console.log("Acknowledge alert:", id);
-    // TODO: Implement acknowledge logic
-  };
+  const [selectedSeverities, setSelectedSeverities] = useState<AlertSeverity[]>([
+    "disaster",
+    "critical",
+    "high",
+    "warning",
+    "average",
+    "info",
+  ]);
+  const [showAcknowledged, setShowAcknowledged] = useState(true);
 
   const handleAcknowledgeAll = () => {
     console.log("Acknowledge all alerts");
     // TODO: Implement acknowledge all logic
   };
 
-  const criticalCount = mockAlerts.filter(a => a.severity === "critical" || a.severity === "disaster").length;
-  const highCount = mockAlerts.filter(a => a.severity === "high").length;
-  const warningCount = mockAlerts.filter(a => a.severity === "warning").length;
-  const acknowledgedCount = mockAlerts.filter(a => a.status === "acknowledged").length;
+  // Mock counts for summary cards
+  const criticalCount = 1;
+  const highCount = 2;
+  const warningCount = 2;
+  const acknowledgedCount = 2;
 
   return (
     <AppLayout>
@@ -102,7 +35,7 @@ const Alerts = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">Alerts</h1>
-            <p className="text-muted-foreground">{mockAlerts.length} active alerts</p>
+            <p className="text-muted-foreground">5 active alerts</p>
           </div>
           <Button 
             onClick={handleAcknowledgeAll}
@@ -113,7 +46,7 @@ const Alerts = () => {
           </Button>
         </div>
 
-        {/* Stats Cards */}
+        {/* Top Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="cyber-card border-destructive/30 bg-gradient-to-br from-destructive/20 to-destructive/5">
             <div className="flex items-center justify-between">
@@ -153,25 +86,15 @@ const Alerts = () => {
         </div>
 
         {/* Filters */}
-        <AlertFilters filters={filters} onFiltersChange={setFilters} />
-
-        {/* Alerts Table */}
-        <AlertsTable
-          alerts={mockAlerts}
-          onAlertClick={handleAlertClick}
-          onAcknowledge={handleAcknowledge}
-          currentPage={currentPage}
-          totalPages={3}
-          onPageChange={setCurrentPage}
+        <AlertFilters 
+          selectedSeverities={selectedSeverities}
+          onSeverityChange={setSelectedSeverities}
+          showAcknowledged={showAcknowledged}
+          onShowAcknowledgedChange={setShowAcknowledged}
         />
 
-        {/* Alert Detail Drawer */}
-        <AlertDetailDrawer
-          alert={selectedAlert}
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          onAcknowledge={handleAcknowledge}
-        />
+        {/* Alerts Table - uses internal mock data and drawer */}
+        <AlertsTable />
       </div>
     </AppLayout>
   );
