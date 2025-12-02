@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Clock, Server, Tag } from "lucide-react";
+import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import {
   Table,
   TableBody,
@@ -10,163 +10,267 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import SeverityBadge, { Severity } from "./SeverityBadge";
+import { Clock, CheckCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import SeverityBadge, { AlertSeverity } from "./SeverityBadge";
 import AlertActionMenu from "./AlertActionMenu";
+import AlertDetailDrawer from "./AlertDetailDrawer";
+import TableSkeleton from "@/components/loading/TableSkeleton";
 
 export interface Alert {
   id: number;
-  severity: Severity;
+  severity: AlertSeverity;
   host: string;
-  category?: string;
-  scope?: string;
+  category: string;
   problem: string;
   duration: string;
+  scope?: string;
+  acknowledged: boolean;
   status: "active" | "acknowledged" | "resolved";
   timestamp: string;
 }
 
+// Mock data
+const mockAlerts: Alert[] = [
+  {
+    id: 1,
+    severity: "critical",
+    host: "api-gateway-01",
+    category: "Disk",
+    problem: "Disk space critical - 95% full",
+    duration: "5m",
+    acknowledged: false,
+    status: "active",  
+    timestamp: "2025-11-30 14:23:00",
+  },
+  {
+    id: 2,
+    severity: "high",
+    host: "prod-web-01",
+    category: "CPU",
+    problem: "High CPU usage detected - 92%",
+    duration: "12m",
+    acknowledged: false,
+    status: "active", 
+    timestamp: "2025-11-30 14:16:00",
+  },
+  {
+    id: 3,
+    severity: "high",
+    host: "db-master-01",
+    category: "Performance",
+    problem: "Slow query performance detected",
+    duration: "18m",
+    acknowledged: true,
+    status: "acknowledged",
+    timestamp: "2025-11-30 14:10:00",
+  },
+  {
+    id: 4,
+    severity: "warning",
+    host: "cache-redis-03",
+    category: "Memory",
+    problem: "Memory pressure warning - 78%",
+    duration: "25m",
+    acknowledged: false,
+    status: "active",
+    timestamp: "2025-11-30 14:03:00",
+  },
+  {
+    id: 5,
+    severity: "warning",
+    host: "worker-queue-02",
+    category: "Queue",
+    problem: "Queue processing delay detected",
+    duration: "32m",
+    acknowledged: true,
+    status: "acknowledged",
+    timestamp: "2025-11-30 13:56:00",
+  },
+];
+
 interface AlertsTableProps {
-  alerts: Alert[];
-  onAlertClick?: (alert: Alert) => void;
-  onAcknowledge?: (id: number) => void;
-  currentPage?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
+  alerts?: Alert[];
+  loading?: boolean;
 }
 
-const AlertsTable = ({
-  alerts,
-  onAlertClick,
-  onAcknowledge,
-  currentPage = 1,
-  totalPages = 1,
-  onPageChange,
-}: AlertsTableProps) => {
+const AlertsTable = ({ alerts = mockAlerts, loading = false }: AlertsTableProps) => {
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+  const itemsPerPage = 10;
+
+  const totalPages = Math.ceil(alerts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAlerts = alerts.slice(startIndex, endIndex);
+
+  const handleRowClick = useCallback((alert: Alert) => {
+    setSelectedAlert(alert);
+    setDrawerOpen(true);
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, alert: Alert, index: number) => {
+    switch (e.key) {
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        handleRowClick(alert);
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        const nextIndex = Math.min(index + 1, currentAlerts.length - 1);
+        setFocusedRowIndex(nextIndex);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        const prevIndex = Math.max(index - 1, 0);
+        setFocusedRowIndex(prevIndex);
+        break;
+      case "Escape":
+        if (drawerOpen) {
+          setDrawerOpen(false);
+        }
+        break;
+    }
+  }, [currentAlerts.length, handleRowClick, drawerOpen]);
+
+  if (loading) {
+    return <TableSkeleton rows={5} columns={7} />;
+  }
+
   if (alerts.length === 0) {
     return (
-      <div className="cyber-card text-center py-16">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-          <Server className="w-8 h-8 text-primary" />
-        </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="cyber-card flex flex-col items-center justify-center py-16"
+      >
+        <Search className="w-16 h-16 text-muted-foreground mb-4" />
         <h3 className="text-xl font-semibold mb-2">No Alerts Found</h3>
-        <p className="text-muted-foreground">
-          All systems are operating normally. No active alerts at this time.
+        <p className="text-muted-foreground mb-4">
+          No alerts match your current filter criteria
         </p>
-      </div>
+        <Button variant="outline">Clear Filters</Button>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <>
       <div className="cyber-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent border-border/50">
-              <TableHead className="w-48">Severity</TableHead>
-              <TableHead>Host / Category</TableHead>
-              <TableHead>Problem</TableHead>
-              <TableHead className="w-32">Duration</TableHead>
-              <TableHead className="w-32">Status</TableHead>
-              <TableHead className="w-16"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {alerts.map((alert) => (
-              <TableRow
-                key={alert.id}
-                onClick={() => onAlertClick?.(alert)}
-                className="cursor-pointer hover:bg-surface/50 transition-colors border-border/30"
-              >
-                <TableCell>
-                  <SeverityBadge severity={alert.severity} />
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Server className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{alert.host}</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {alert.category && (
-                        <Badge variant="outline" className="gap-1">
-                          <Tag className="w-3 h-3" />
-                          {alert.category}
-                        </Badge>
-                      )}
-                      {alert.scope && (
-                        <Badge variant="secondary" className="text-xs">
-                          {alert.scope}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <p className="font-medium line-clamp-2">{alert.problem}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{alert.timestamp}</p>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm font-medium">{alert.duration}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {alert.status === "acknowledged" ? (
-                    <Badge variant="outline" className="border-success/50 text-success">
-                      Acknowledged
-                    </Badge>
-                  ) : alert.status === "resolved" ? (
-                    <Badge variant="outline" className="border-primary/50 text-primary">
-                      Resolved
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-accent/50 text-accent">
-                      Active
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <AlertActionMenu
-                    alertId={alert.id}
-                    isAcknowledged={alert.status === "acknowledged"}
-                    onAcknowledge={onAcknowledge}
-                    onViewDetails={() => onAlertClick?.(alert)}
-                  />
-                </TableCell>
+        <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table role="table" aria-label="Alerts table">
+            <TableHeader>
+              <TableRow>
+                <TableHead role="columnheader" aria-sort="none" className="w-24">Severity</TableHead>
+                <TableHead role="columnheader" className="w-32 sm:w-auto">Host</TableHead>
+                <TableHead role="columnheader" className="hidden sm:table-cell">Category</TableHead>
+                <TableHead role="columnheader" className="min-w-[200px]">Problem</TableHead>
+                <TableHead role="columnheader" className="hidden md:table-cell">Duration</TableHead>
+                <TableHead role="columnheader" className="hidden lg:table-cell">Status</TableHead>
+                <TableHead className="text-right w-20" role="columnheader">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {currentAlerts.map((alert, index) => (
+                <motion.tr
+                  key={alert.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                  whileHover={{ scale: 1.01 }}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleRowClick(alert)}
+                  onKeyDown={(e) => handleKeyDown(e, alert, index)}
+                  tabIndex={0}
+                  role="row"
+                  aria-label={`Alert ${alert.severity} on ${alert.host}: ${alert.problem}`}
+                >
+                  <TableCell role="cell" className="whitespace-nowrap">
+                    <SeverityBadge severity={alert.severity} />
+                  </TableCell>
+                  <TableCell role="cell" className="whitespace-nowrap">
+                    <Badge variant="outline" className="text-xs">{alert.host}</Badge>
+                  </TableCell>
+                  <TableCell role="cell" className="hidden sm:table-cell whitespace-nowrap">
+                    <Badge variant="secondary" className="text-xs">{alert.category}</Badge>
+                  </TableCell>
+                  <TableCell className="font-medium min-w-[200px] sm:min-w-[250px]" role="cell">
+                    <span className="line-clamp-2">{alert.problem}</span>
+                  </TableCell>
+                  <TableCell role="cell" className="hidden md:table-cell whitespace-nowrap">
+                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="w-3 h-3" aria-hidden="true" />
+                      {alert.duration}
+                    </span>
+                  </TableCell>
+                  <TableCell role="cell" className="hidden lg:table-cell whitespace-nowrap">
+                    {alert.acknowledged ? (
+                      <span className="flex items-center gap-1 text-xs text-success">
+                        <CheckCircle className="w-3 h-3" aria-hidden="true" />
+                        <span className="hidden xl:inline">Acknowledged</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Active
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()} role="cell">
+                    <AlertActionMenu
+                      alertId={alert.id}
+                      acknowledged={alert.acknowledged}
+                      onViewDetails={() => handleRowClick(alert)}
+                    />
+                  </TableCell>
+                </motion.tr>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, alerts.length)} of{" "}
+              {alerts.length} alerts
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm" aria-live="polite" aria-atomic="true">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange?.(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange?.(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+      <AlertDetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        alert={selectedAlert}
+      />
+    </>
   );
 };
 

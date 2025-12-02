@@ -1,10 +1,12 @@
 import { useState } from "react";
 import UserLayout from "@/layouts/UserLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import { CheckCircle } from "lucide-react";
 import AlertsTable, { Alert } from "@/components/alerts/AlertsTable";
-import AlertDetailDrawer from "@/components/alerts/AlertDetailDrawer";
-import AlertFilters, { AlertFiltersState } from "@/components/alerts/AlertFilters";
+import AlertFilters from "@/components/alerts/AlertFilters";
+import { AlertSeverity } from "@/components/alerts/SeverityBadge";
 
 const mockAlerts: Alert[] = [
   {
@@ -15,6 +17,7 @@ const mockAlerts: Alert[] = [
     scope: "Production",
     problem: "Disk space critical - 95% full",
     duration: "5m",
+    acknowledged: false,  
     status: "active",
     timestamp: "2024-01-15 14:23:45"
   },
@@ -26,6 +29,7 @@ const mockAlerts: Alert[] = [
     scope: "Production",
     problem: "High CPU usage detected - 92%",
     duration: "12m",
+    acknowledged: false,  
     status: "active",
     timestamp: "2024-01-15 14:18:22"
   },
@@ -37,6 +41,7 @@ const mockAlerts: Alert[] = [
     scope: "Production",
     problem: "Slow query performance detected",
     duration: "18m",
+    acknowledged: true,   
     status: "acknowledged",
     timestamp: "2024-01-15 14:12:10"
   },
@@ -48,6 +53,7 @@ const mockAlerts: Alert[] = [
     scope: "Staging",
     problem: "Memory pressure warning - 78%",
     duration: "25m",
+    acknowledged: false,  
     status: "active",
     timestamp: "2024-01-15 14:05:33"
   },
@@ -59,35 +65,21 @@ const mockAlerts: Alert[] = [
     scope: "Production",
     problem: "Queue processing delay detected",
     duration: "32m",
+    acknowledged: true,   
     status: "acknowledged",
     timestamp: "2024-01-15 13:58:15"
   },
 ];
 
 const UserAlerts = () => {
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState<AlertFiltersState>({
-    searchQuery: "",
-    severities: [],
-    hosts: [],
-    timeRange: "24h"
-  });
-
-  const handleAlertClick = (alert: Alert) => {
-    setSelectedAlert(alert);
-    setIsDrawerOpen(true);
-  };
-
-  const handleAcknowledge = (id: number) => {
-    console.log("Acknowledge alert:", id);
-  };
-
-  const criticalCount = mockAlerts.filter(a => a.severity === "critical" || a.severity === "disaster").length;
-  const highCount = mockAlerts.filter(a => a.severity === "high").length;
-  const warningCount = mockAlerts.filter(a => a.severity === "warning").length;
-  const acknowledgedCount = mockAlerts.filter(a => a.status === "acknowledged").length;
+  const [selectedSeverities, setSelectedSeverities] = useState<AlertSeverity[]>([
+    "critical",
+    "high",
+    "warning",
+    "info",
+  ]);
+  const [showAcknowledged, setShowAcknowledged] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <UserLayout>
@@ -96,6 +88,7 @@ const UserAlerts = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2">Alerts</h1>
+            <p className="text-muted-foreground">Monitor and manage active alerts</p>
             <p className="text-muted-foreground">{mockAlerts.length} active alerts</p>
           </div>
           <Button className="bg-gradient-to-r from-success to-primary hover:opacity-90 text-background">
@@ -104,66 +97,29 @@ const UserAlerts = () => {
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="cyber-card border-destructive/30 bg-gradient-to-br from-destructive/20 to-destructive/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Critical</p>
-                <p className="text-3xl font-bold">{criticalCount}</p>
-              </div>
+        {/* Search and Filters */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="Search alerts..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
+            <AlertFilters
+              selectedSeverities={selectedSeverities}
+              onSeverityChange={setSelectedSeverities}
+              showAcknowledged={showAcknowledged}
+              onShowAcknowledgedChange={setShowAcknowledged}
+            />
           </div>
 
-          <div className="cyber-card border-accent/30 bg-gradient-to-br from-accent/20 to-accent/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">High</p>
-                <p className="text-3xl font-bold">{highCount}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="cyber-card border-warning/30 bg-gradient-to-br from-warning/20 to-warning/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Warning</p>
-                <p className="text-3xl font-bold">{warningCount}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="cyber-card border-success/30 bg-gradient-to-br from-success/20 to-success/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Acknowledged</p>
-                <p className="text-3xl font-bold">{acknowledgedCount}</p>
-              </div>
-            </div>
-          </div>
+          {/* Alerts Table */}
+          <AlertsTable />
         </div>
-
-        {/* Filters */}
-        <AlertFilters filters={filters} onFiltersChange={setFilters} />
-
-        {/* Alerts Table */}
-        <AlertsTable
-          alerts={mockAlerts}
-          onAlertClick={handleAlertClick}
-          onAcknowledge={handleAcknowledge}
-          currentPage={currentPage}
-          totalPages={3}
-          onPageChange={setCurrentPage}
-        />
-
-        {/* Alert Detail Drawer */}
-        <AlertDetailDrawer
-          alert={selectedAlert}
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          onAcknowledge={handleAcknowledge}
-        />
-      </div>
+        
     </UserLayout>
   );
 };

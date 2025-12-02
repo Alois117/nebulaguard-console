@@ -1,164 +1,318 @@
-import { useState } from "react";
-import { Search, Filter, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-export interface AlertFiltersState {
-  searchQuery: string;
-  severities: string[];
-  hosts: string[];
-  timeRange: string;
-}
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
+import { Filter, Calendar as CalendarIcon, X } from "lucide-react";
+import { AlertSeverity } from "./SeverityBadge";
+import { format } from "date-fns";
 
 interface AlertFiltersProps {
-  filters: AlertFiltersState;
-  onFiltersChange: (filters: AlertFiltersState) => void;
+  selectedSeverities: AlertSeverity[];
+  onSeverityChange: (severities: AlertSeverity[]) => void;
+  showAcknowledged: boolean;
+  onShowAcknowledgedChange: (show: boolean) => void;
 }
 
-const AlertFilters = ({ filters, onFiltersChange }: AlertFiltersProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const AlertFilters = ({
+  selectedSeverities,
+  onSeverityChange,
+  showAcknowledged,
+  onShowAcknowledgedChange,
+}: AlertFiltersProps) => {
+  const severities: AlertSeverity[] = ["critical", "high", "warning", "info"];
+  const hosts = ["api-gateway-01", "prod-web-01", "db-master-01", "cache-redis-03", "worker-queue-02"];
+  const tags = ["network", "compute", "backup", "security", "database", "storage"];
+  const timeRanges = [
+    { label: "Last 1h", value: "1h" },
+    { label: "Last 6h", value: "6h" },
+    { label: "Last 24h", value: "24h" },
+    { label: "Last 7d", value: "7d" },
+    { label: "Last 30d", value: "30d" },
+  ];
 
-  const handleSearchChange = (value: string) => {
-    onFiltersChange({ ...filters, searchQuery: value });
-  };
+  const [selectedHosts, setSelectedHosts] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>("24h");
+  const [customDateFrom, setCustomDateFrom] = useState<Date>();
+  const [customDateTo, setCustomDateTo] = useState<Date>();
 
-  const handleTimeRangeChange = (value: string) => {
-    onFiltersChange({ ...filters, timeRange: value });
-  };
+  const toggleSeverity = useCallback((severity: AlertSeverity) => {
+    if (selectedSeverities.includes(severity)) {
+      onSeverityChange(selectedSeverities.filter((s) => s !== severity));
+    } else {
+      onSeverityChange([...selectedSeverities, severity]);
+    }
+  }, [selectedSeverities, onSeverityChange]);
 
-  const clearFilters = () => {
-    onFiltersChange({
-      searchQuery: "",
-      severities: [],
-      hosts: [],
-      timeRange: "24h"
-    });
-  };
+  const toggleHost = useCallback((host: string) => {
+    if (selectedHosts.includes(host)) {
+      setSelectedHosts(selectedHosts.filter((h) => h !== host));
+    } else {
+      setSelectedHosts([...selectedHosts, host]);
+    }
+  }, [selectedHosts]);
 
-  const hasActiveFilters = 
-    filters.searchQuery || 
-    filters.severities.length > 0 || 
-    filters.hosts.length > 0 ||
-    filters.timeRange !== "24h";
+  const toggleTag = useCallback((tag: string) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  }, [selectedTags]);
+
+  const clearAllFilters = useCallback(() => {
+    onSeverityChange(["critical", "high", "warning", "info"]);
+    onShowAcknowledgedChange(true);
+    setSelectedHosts([]);
+    setSelectedTags([]);
+    setSelectedTimeRange("24h");
+    setCustomDateFrom(undefined);
+    setCustomDateTo(undefined);
+  }, [onSeverityChange, onShowAcknowledgedChange]);
+
+  const activeFiltersCount = useMemo(() => 
+    (selectedSeverities.length < 4 ? 1 : 0) +
+    (!showAcknowledged ? 1 : 0) +
+    (selectedHosts.length > 0 ? 1 : 0) +
+    (selectedTags.length > 0 ? 1 : 0) +
+    (selectedTimeRange !== "24h" || customDateFrom || customDateTo ? 1 : 0),
+    [selectedSeverities.length, showAcknowledged, selectedHosts.length, selectedTags.length, selectedTimeRange, customDateFrom, customDateTo]
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        {/* Search */}
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search alerts by problem, host, or AI summary..."
-            value={filters.searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Time Range */}
-        <Select value={filters.timeRange} onValueChange={handleTimeRangeChange}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1h">Last Hour</SelectItem>
-            <SelectItem value="6h">Last 6 Hours</SelectItem>
-            <SelectItem value="24h">Last 24 Hours</SelectItem>
-            <SelectItem value="7d">Last 7 Days</SelectItem>
-            <SelectItem value="30d">Last 30 Days</SelectItem>
-            <SelectItem value="custom">Custom Range</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Toggle Filters */}
-        <Button
-          variant="outline"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={hasActiveFilters ? "border-primary" : ""}
-        >
-          <Filter className="w-4 h-4 mr-2" />
-          Filters
-          {hasActiveFilters && (
-            <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-              Active
-            </Badge>
-          )}
-        </Button>
-
-        {hasActiveFilters && (
-          <Button variant="ghost" size="icon" onClick={clearFilters}>
-            <X className="w-4 h-4" />
+    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+      {/* Severity Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="gap-2 flex-1 sm:flex-none text-sm"
+            aria-label="Filter by severity"
+          >
+            <Filter className="w-4 h-4" />
+            Severity
+            {selectedSeverities.length < 4 && (
+              <Badge variant="secondary" className="ml-1">
+                {selectedSeverities.length}
+              </Badge>
+            )}
           </Button>
-        )}
-      </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Severity Levels</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {severities.map((severity) => (
+            <DropdownMenuCheckboxItem
+              key={severity}
+              checked={selectedSeverities.includes(severity)}
+              onCheckedChange={() => toggleSeverity(severity)}
+            >
+              {severity.toUpperCase()}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      {/* Expanded Filters */}
-      {isExpanded && (
-        <div className="glass-card rounded-xl p-4 space-y-4 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Severity Filter */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Severity</label>
-              <div className="space-y-2">
-                {["disaster", "critical", "high", "warning", "average", "info"].map((severity) => (
-                  <label key={severity} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.severities.includes(severity)}
-                      onChange={(e) => {
-                        const newSeverities = e.target.checked
-                          ? [...filters.severities, severity]
-                          : filters.severities.filter((s) => s !== severity);
-                        onFiltersChange({ ...filters, severities: newSeverities });
-                      }}
-                      className="rounded border-border"
-                    />
-                    <span className="text-sm capitalize">{severity}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+      {/* Host Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="gap-2 flex-1 sm:flex-none text-sm"
+            aria-label="Filter by host"
+          >
+            Hosts
+            {selectedHosts.length > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {selectedHosts.length}
+              </Badge>
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Select Hosts</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {hosts.map((host) => (
+            <DropdownMenuCheckboxItem
+              key={host}
+              checked={selectedHosts.includes(host)}
+              onCheckedChange={() => toggleHost(host)}
+            >
+              {host}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-            {/* Host Filter (Placeholder) */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Host</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Hosts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Hosts</SelectItem>
-                  <SelectItem value="api">API Servers</SelectItem>
-                  <SelectItem value="db">Database Servers</SelectItem>
-                  <SelectItem value="web">Web Servers</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Tags Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="gap-2 flex-1 sm:flex-none text-sm"
+            aria-label="Filter by tags, classes, or scopes"
+          >
+            Tags
+            {selectedTags.length > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {selectedTags.length}
+              </Badge>
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Tags / Classes / Scopes</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {tags.map((tag) => (
+            <DropdownMenuCheckboxItem
+              key={tag}
+              checked={selectedTags.includes(tag)}
+              onCheckedChange={() => toggleTag(tag)}
+            >
+              {tag}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-            {/* Status Filter (Placeholder) */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Time Range Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="gap-2 flex-1 sm:flex-none text-sm"
+            aria-label="Filter by time range"
+          >
+            <CalendarIcon className="w-4 h-4" />
+            {timeRanges.find((r) => r.value === selectedTimeRange)?.label || "Time Range"}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Time Range</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {timeRanges.map((range) => (
+            <DropdownMenuCheckboxItem
+              key={range.value}
+              checked={selectedTimeRange === range.value}
+              onCheckedChange={() => setSelectedTimeRange(range.value)}
+            >
+              {range.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
+          <div className="p-2">
+            <p className="text-xs text-muted-foreground mb-2">Custom Date Range</p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal">
+                  {customDateFrom ? format(customDateFrom, "PP") : "From date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={customDateFrom}
+                  onSelect={setCustomDateFrom}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal mt-2">
+                  {customDateTo ? format(customDateTo, "PP") : "To date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={customDateTo}
+                  onSelect={setCustomDateTo}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Status Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="flex-1 sm:flex-none text-sm"
+            aria-label="Filter by alert status"
+          >
+            Status
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Alert Status</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            checked={showAcknowledged}
+            onCheckedChange={onShowAcknowledgedChange}
+          >
+            Show Acknowledged
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Clear All Filters */}
+      {activeFiltersCount > 0 && (
+        <Button 
+          variant="ghost" 
+          onClick={clearAllFilters} 
+          className="gap-2 w-full sm:w-auto text-sm"
+          aria-label={`Clear all ${activeFiltersCount} active filters`}
+        >
+          <X className="w-4 h-4" />
+          <span className="hidden sm:inline">Clear All ({activeFiltersCount})</span>
+          <span className="sm:hidden">Clear ({activeFiltersCount})</span>
+        </Button>
+      )}
+
+      {/* Active Filter Tags */}
+      {selectedHosts.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedHosts.map((host) => (
+            <Badge key={host} variant="secondary" className="gap-1">
+              {host}
+              <X
+                className="w-3 h-3 cursor-pointer"
+                onClick={() => toggleHost(host)}
+              />
+            </Badge>
+          ))}
+        </div>
+      )}
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedTags.map((tag) => (
+            <Badge key={tag} variant="outline" className="gap-1">
+              {tag}
+              <X
+                className="w-3 h-3 cursor-pointer"
+                onClick={() => toggleTag(tag)}
+              />
+            </Badge>
+          ))}
         </div>
       )}
     </div>
