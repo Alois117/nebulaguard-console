@@ -38,6 +38,20 @@ interface AlertDetail {
   duration: string;
   acknowledged: boolean;
   timestamp: string;
+  // Extended fields from webhook
+  aiInsights?: string;
+  timesSent?: number;
+  firstSeen?: string;
+  lastSeen?: string;
+  dedupeKey?: string;
+  rawMetadata?: {
+    name: string;
+    clock: string;
+    eventid: string;
+    r_clock: string;
+    objectid: string;
+    severity: string;
+  };
 }
 
 interface AlertDetailDrawerProps {
@@ -45,6 +59,16 @@ interface AlertDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   alert: AlertDetail | null;
 }
+
+// Parse markdown-style AI response
+const parseAIInsights = (aiResponse: string) => {
+  if (!aiResponse) return null;
+  
+  // Clean up the response
+  const cleaned = aiResponse.trim();
+  
+  return cleaned;
+};
 
 const AlertDetailDrawer = ({
   open,
@@ -59,11 +83,13 @@ const AlertDetailDrawer = ({
 
   if (!alert) return null;
 
+  const hasRealAIInsights = !!alert.aiInsights;
+  const parsedInsights = parseAIInsights(alert.aiInsights || "");
+
   const handleRetryAI = () => {
     setAiLoading(true);
     setAiError(false);
     setIsStreaming(true);
-    // Simulate AI loading with streaming
     setTimeout(() => {
       setAiLoading(false);
       setIsStreaming(false);
@@ -71,15 +97,18 @@ const AlertDetailDrawer = ({
   };
 
   const handleCopyInsight = () => {
-    const insight = `Root Cause: The disk space alert is likely caused by unrotated log files in /var/log/application.
-Recommendation: Implement automated log cleanup and consider increasing disk capacity.
-Impact: High - Critical service degradation risk if disk fills completely.`;
-    
+    const insight = alert.aiInsights || "No AI insights available";
     navigator.clipboard.writeText(insight);
     toast({
       title: "Copied to clipboard",
       description: "AI insight has been copied to your clipboard.",
     });
+  };
+
+  // Calculate duration display
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    return new Date(dateStr).toLocaleString();
   };
 
   return (
@@ -95,7 +124,7 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
         <div className="space-y-6 mt-6">
           {/* Header Section */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <SeverityBadge severity={alert.severity} />
               <Badge variant="outline">{alert.host}</Badge>
               <Badge variant="secondary">{alert.category}</Badge>
@@ -103,7 +132,7 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
 
             <h2 className="text-2xl font-bold">{alert.problem}</h2>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
                 {alert.duration}
@@ -154,26 +183,35 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
             <h3 className="text-lg font-semibold mb-3">Raw Metadata</h3>
             <div className="p-4 bg-muted/50 rounded-lg font-mono text-xs">
               <div className="space-y-1">
-                <p><span className="text-muted-foreground">Alert ID:</span> {alert.id}</p>
+                <p><span className="text-muted-foreground">Event ID:</span> {alert.rawMetadata?.eventid || alert.id}</p>
+                <p><span className="text-muted-foreground">Object ID:</span> {alert.rawMetadata?.objectid || "N/A"}</p>
                 <p><span className="text-muted-foreground">Host:</span> {alert.host}</p>
                 <p><span className="text-muted-foreground">Category:</span> {alert.category}</p>
-                <p><span className="text-muted-foreground">Severity:</span> {alert.severity.toUpperCase()}</p>
+                <p><span className="text-muted-foreground">Severity:</span> {alert.severity.toUpperCase()} ({alert.rawMetadata?.severity || "N/A"})</p>
                 <p><span className="text-muted-foreground">Timestamp:</span> {alert.timestamp}</p>
                 <p><span className="text-muted-foreground">Duration:</span> {alert.duration}</p>
                 <p><span className="text-muted-foreground">Status:</span> {alert.acknowledged ? "Acknowledged" : "Active"}</p>
+                {alert.dedupeKey && (
+                  <p><span className="text-muted-foreground">Dedupe Key:</span> {alert.dedupeKey}</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* AI Insights */}
+          {/* AI Insights - Real data from webhook */}
           <div className="cyber-card border-primary/30">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-semibold">AI Insights</h3>
+                {hasRealAIInsights && (
+                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                    Live
+                  </Badge>
+                )}
               </div>
               <div className="flex gap-2">
-                {!aiLoading && !aiError && (
+                {!aiLoading && !aiError && hasRealAIInsights && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -228,7 +266,7 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
                       <div className="flex-1">
                         <p className="text-sm font-medium mb-2">AI Insights Unavailable</p>
                         <p className="text-xs text-muted-foreground mb-3">
-                          Unable to generate AI insights at this time. This could be due to network issues or service availability.
+                          Unable to generate AI insights at this time.
                         </p>
                         <Button
                           variant="outline"
@@ -243,47 +281,25 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : hasRealAIInsights && parsedInsights ? (
                   <div className="space-y-3">
                     <div className="p-4 bg-primary/5 rounded-lg">
-                      <p className="text-sm mb-3">
-                        <strong>Root Cause Analysis:</strong> The disk space alert is likely caused by 
-                        unrotated log files in /var/log/application. Review log rotation policy.
-                      </p>
-                      <p className="text-sm mb-3">
-                        <strong>Recommendation:</strong> Implement automated log cleanup and consider 
-                        increasing disk capacity or moving logs to external storage.
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Impact:</strong> High - Critical service degradation risk if disk fills completely.
-                      </p>
+                      <div className="prose prose-sm prose-invert max-w-none">
+                        <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
+                          {parsedInsights}
+                        </pre>
+                      </div>
                     </div>
                     
-                    {/* AI Reasoning Steps */}
                     <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value="reasoning">
                         <AccordionTrigger className="text-sm">
-                          View AI Reasoning Steps
+                          View Raw AI Response
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2 text-xs">
-                            <div className="flex gap-2">
-                              <span className="text-muted-foreground">1.</span>
-                              <p>Analyzed historical patterns of disk usage</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <span className="text-muted-foreground">2.</span>
-                              <p>Identified log rotation policy gaps</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <span className="text-muted-foreground">3.</span>
-                              <p>Cross-referenced with similar incidents</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <span className="text-muted-foreground">4.</span>
-                              <p>Calculated risk of service degradation</p>
-                            </div>
-                          </div>
+                          <pre className="p-3 bg-muted/50 rounded-lg text-xs overflow-auto max-h-48">
+                            {alert.aiInsights}
+                          </pre>
                         </AccordionContent>
                       </AccordionItem>
                     </Accordion>
@@ -298,12 +314,18 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
                       Explain Deeper
                     </Button>
                   </div>
+                ) : (
+                  <div className="p-4 bg-muted/20 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No AI insights available for this alert.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Throttle/Dedupe */}
+          {/* Throttle/Dedupe - Real data */}
           <div className="cyber-card">
             <h3 className="text-lg font-semibold mb-3">
               Throttle & Deduplication
@@ -311,19 +333,21 @@ Impact: High - Critical service degradation risk if disk fills completely.`;
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Occurrences:</span>
-                <span className="font-medium">3 times in last hour</span>
+                <span className="font-medium">{alert.timesSent || 1} times</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">First Seen:</span>
-                <span className="font-medium">45m ago</span>
+                <span className="font-medium">{formatDate(alert.firstSeen)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Last Seen:</span>
-                <span className="font-medium">{alert.duration} ago</span>
+                <span className="font-medium">{formatDate(alert.lastSeen)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Throttle Status:</span>
-                <Badge variant="secondary">Active</Badge>
+                <Badge variant="secondary">
+                  {(alert.timesSent || 1) > 1 ? "Active" : "Inactive"}
+                </Badge>
               </div>
             </div>
           </div>
