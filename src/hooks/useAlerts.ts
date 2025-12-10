@@ -41,11 +41,11 @@ const mapSeverity = (zbxSeverity: string): AlertSeverity => {
   }
 };
 
-// Parse duration from timestamps
-const calculateDuration = (firstSeen: string): string => {
-  const first = new Date(firstSeen);
+// Parse duration from timestamps (uses lastSeen for reoccurring alerts)
+const calculateDuration = (lastSeen: string): string => {
+  const last = new Date(lastSeen);
   const now = new Date();
-  const diffMs = now.getTime() - first.getTime();
+  const diffMs = now.getTime() - last.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   
   if (diffMins < 60) return `${diffMins}m`;
@@ -90,7 +90,7 @@ const transformWebhookAlert = (webhook: WebhookAlert): Alert => {
     host: extractHost(webhook.first_ai_response, webhook.dedupe_key),
     category: extractCategory(webhook.raw.name),
     problem: webhook.raw.name,
-    duration: calculateDuration(webhook.first_seen),
+    duration: calculateDuration(webhook.last_seen),
     scope: "Production",
     acknowledged,
     status: acknowledged ? "acknowledged" : "active",
