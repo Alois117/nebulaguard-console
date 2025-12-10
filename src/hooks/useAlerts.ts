@@ -105,6 +105,31 @@ const transformWebhookAlert = (webhook: WebhookAlert): Alert => {
   };
 };
 
+// Sort alerts by timestamp descending (newest first)
+const sortAlertsDescending = (alerts: Alert[]): Alert[] => {
+  return [...alerts].sort((a, b) => {
+    // Use lastSeen, fallback to firstSeen, then timestamp
+    const getTime = (alert: Alert): number => {
+      if (alert.lastSeen) {
+        const date = new Date(alert.lastSeen);
+        if (!isNaN(date.getTime())) return date.getTime();
+      }
+      if (alert.firstSeen) {
+        const date = new Date(alert.firstSeen);
+        if (!isNaN(date.getTime())) return date.getTime();
+      }
+      // Fallback to raw clock (epoch seconds)
+      if (alert.rawMetadata?.clock) {
+        const epoch = parseInt(alert.rawMetadata.clock, 10);
+        if (!isNaN(epoch)) return epoch * 1000;
+      }
+      return 0; // Preserve order if no valid timestamp
+    };
+    
+    return getTime(b) - getTime(a); // Descending order
+  });
+};
+
 export interface AlertCounts {
   disaster: number;
   high: number;
@@ -179,7 +204,9 @@ export const useAlerts = (): UseAlertsReturn => {
       });
       
       alertsMapRef.current = newAlertsMap;
-      setAlerts(Array.from(newAlertsMap.values()));
+      // Sort by timestamp descending (newest first) before setting state
+      const sortedAlerts = sortAlertsDescending(Array.from(newAlertsMap.values()));
+      setAlerts(sortedAlerts);
       setIsConnected(true);
       setLastUpdated(new Date());
       setError(null);
