@@ -6,30 +6,31 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Server, AlertCircle, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useHosts } from "@/hooks/useHosts";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const UserHosts = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   
-  const hosts = [
-    { id: "1", name: "web-server-01", ip: "192.168.1.10", status: "online", problems: 0, group: "Web Servers" },
-    { id: "2", name: "db-server-01", ip: "192.168.1.20", status: "online", problems: 2, group: "Databases" },
-    { id: "3", name: "app-server-01", ip: "192.168.1.30", status: "warning", problems: 1, group: "Web Servers" },
-    { id: "4", name: "cache-server-01", ip: "192.168.1.40", status: "online", problems: 0, group: "Cache" },
-    { id: "5", name: "api-gateway-01", ip: "192.168.1.50", status: "online", problems: 0, group: "API Gateway" },
-    { id: "6", name: "lb-nginx-01", ip: "192.168.1.60", status: "online", problems: 1, group: "Load Balancers" },
-    { id: "7", name: "worker-queue-01", ip: "192.168.1.70", status: "online", problems: 0, group: "Workers" },
-  ];
-
-  const groups = Array.from(new Set(hosts.map(h => h.group)));
+  const { hosts, loading, groups, counts } = useHosts();
   
   const filteredHosts = hosts.filter(host => {
     const matchesSearch = host.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         host.ip.includes(searchQuery);
+                          host.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          host.ip.includes(searchQuery);
     const matchesGroup = !selectedGroup || host.group === selectedGroup;
     return matchesSearch && matchesGroup;
   });
+
+  const getProblemsCount = (status: string): number => {
+    switch (status) {
+      case "critical": return 2;
+      case "warning": return 1;
+      default: return 0;
+    }
+  };
 
   return (
     <UserLayout>
@@ -60,7 +61,7 @@ const UserHosts = () => {
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 flex-wrap">
             <Button
               variant={selectedGroup === null ? "default" : "outline"}
               onClick={() => setSelectedGroup(null)}
@@ -80,42 +81,70 @@ const UserHosts = () => {
             ))}
           </div>
 
+          {/* Loading State */}
+          {loading && hosts.length === 0 && (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-surface/50 border border-border/50">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="w-12 h-12 rounded-lg" />
+                    <div>
+                      <Skeleton className="h-5 w-32 mb-2" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Hosts List */}
-          <div className="space-y-3">
-            {filteredHosts.map((host) => (
-              <div
-                key={host.id}
-                onClick={() => navigate(`/dashboard/hosts/${host.id}`)}
-                className="flex items-center justify-between p-4 rounded-lg bg-surface/50 border border-border/50 hover:border-primary/50 transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <Server className="w-6 h-6 text-background" />
+          {(!loading || hosts.length > 0) && (
+            <div className="space-y-3">
+              {filteredHosts.map((host) => (
+                <div
+                  key={host.id}
+                  onClick={() => navigate(`/dashboard/hosts/${host.id}`)}
+                  className="flex items-center justify-between p-4 rounded-lg bg-surface/50 border border-border/50 hover:border-primary/50 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                      <Server className="w-6 h-6 text-background" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{host.displayName}</h3>
+                      <p className="text-sm text-muted-foreground">{host.ip}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{host.group}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">{host.name}</h3>
-                    <p className="text-sm text-muted-foreground">{host.ip}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{host.group}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {host.problems > 0 && (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {host.problems} problems
+                  <div className="flex items-center gap-4">
+                    {getProblemsCount(host.status) > 0 && (
+                      <Badge variant="destructive" className="gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {getProblemsCount(host.status)} problems
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={host.status === "healthy" ? "default" : "secondary"}
+                      className="gap-1"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      {host.status}
                     </Badge>
-                  )}
-                  <Badge
-                    variant={host.status === "online" ? "default" : "secondary"}
-                    className="gap-1"
-                  >
-                    <CheckCircle className="w-3 h-3" />
-                    {host.status}
-                  </Badge>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && filteredHosts.length === 0 && (
+            <div className="text-center py-12">
+              <Server className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No hosts found matching your criteria</p>
+            </div>
+          )}
         </Card>
       </div>
     </UserLayout>
