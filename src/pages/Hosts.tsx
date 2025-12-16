@@ -15,9 +15,12 @@ const Hosts = () => {
   const { hosts, loading, groups, counts } = useHosts();
 
   const filteredHosts = hosts.filter(host => {
-    const matchesSearch = host.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          host.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          host.ip.toLowerCase().includes(searchQuery.toLowerCase());
+    const search = searchQuery.toLowerCase();
+    const name = host.name?.toLowerCase() || "";
+    const displayName = host.displayName?.toLowerCase() || "";
+    const ip = host.ip || "";
+    
+    const matchesSearch = name.includes(search) || displayName.includes(search) || ip.toLowerCase().includes(search);
     const matchesGroup = !selectedGroup || host.group === selectedGroup;
     return matchesSearch && matchesGroup;
   });

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const WEBHOOK_URL = "http://10.100.12.54:5678/webhook/zabbix/host-details";
-const REFRESH_INTERVAL = 300000; // 5 minutes
+const REFRESH_INTERVAL = 5000; // 5 seconds
 
 export interface HostMetrics {
   hostid: string;
