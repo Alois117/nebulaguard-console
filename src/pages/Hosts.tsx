@@ -21,13 +21,13 @@ const Hosts = () => {
     cpu: 0,
     memory: 0,
     uptime: "—",
-    group: host.hostgroups,
+    group: Array.isArray(host.hostgroups) ? host.hostgroups.join(", ") : (host.hostgroups || "Uncategorized"),
   }));
 
   const groups = Array.from(new Set(mappedHosts.map(h => h.group)));
   
   const filteredHosts = mappedHosts.filter(host => {
-    const matchesSearch = host.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (host.name || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGroup = !selectedGroup || host.group === selectedGroup;
     return matchesSearch && matchesGroup;
   });
