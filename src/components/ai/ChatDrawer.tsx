@@ -67,8 +67,8 @@ const ChatDrawer = ({ isOpen, onClose }: ChatDrawerProps) => {
             <Sparkles className="w-4 h-4 text-primary glow-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm">AI Assistant</h3>
-            <p className="text-xs text-muted-foreground">Jarvis AI</p>
+            <h3 className="font-semibold text-sm">Jarvis AI</h3>
+            <p className="text-xs text-muted-foreground">Your AI Assistant</p>
           </div>
         </div>
       </div>
