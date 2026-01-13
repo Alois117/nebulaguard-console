@@ -42,6 +42,7 @@ import UsageMeters from "./pages/org-admin/UsageMeters";
 import AlertConfiguration from "./pages/org-admin/AlertConfiguration";
 import OnCallSchedules from "./pages/org-admin/OnCallSchedules";
 import ZabbixHosts from "./pages/org-admin/ZabbixHosts";
+import Zabbix from "./pages/org-admin/Zabbix";
 import MaintenanceWindows from "./pages/org-admin/MaintenanceWindows";
 import AISettings from "./pages/org-admin/AISettings";
 
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/admin/usage" element={<RoleBasedRoute requiredRole="org_admin"><UsageMeters /></RoleBasedRoute>} />
             <Route path="/admin/alerts" element={<RoleBasedRoute requiredRole="org_admin"><AlertConfiguration /></RoleBasedRoute>} />
             <Route path="/admin/oncall" element={<RoleBasedRoute requiredRole="org_admin"><OnCallSchedules /></RoleBasedRoute>} />
+            <Route path="/admin/zabbix-monitoring" element={<RoleBasedRoute requiredRole="org_admin"><Zabbix /></RoleBasedRoute>} />
             <Route path="/admin/zabbix" element={<RoleBasedRoute requiredRole="org_admin"><ZabbixHosts /></RoleBasedRoute>} />
             <Route path="/admin/maintenance" element={<RoleBasedRoute requiredRole="org_admin"><MaintenanceWindows /></RoleBasedRoute>} />
             <Route path="/admin/ai" element={<RoleBasedRoute requiredRole="org_admin"><AISettings /></RoleBasedRoute>} />

@@ -17,6 +17,7 @@ const menuItems = [
   { icon: BarChart3, label: "Usage Meters", path: "/admin/usage" },
   { icon: AlertCircle, label: "Alerts Config", path: "/admin/alerts" },
   { icon: Clock, label: "On-Call", path: "/admin/oncall" },
+  { icon: ServerIcon, label: "Zabbix", path: "/admin/zabbix-monitoring" },
   { icon: ServerIcon, label: "Zabbix Hosts", path: "/admin/zabbix" },
   { icon: Wrench, label: "Maintenance", path: "/admin/maintenance" },
   { icon: Brain, label: "AI Settings", path: "/admin/ai" },
