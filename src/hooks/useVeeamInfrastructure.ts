@@ -1,50 +1,53 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 export interface VeeamVMRawJson {
-  name: string;
-  vmId: number;
-  moRef: string;
-  notes: string | null;
-  guestOs: string;
-  category: string;
-  cpuCount: number;
-  isReplica: boolean;
-  dedupe_key: string;
-  powerState: string;
-  isProtected: boolean;
-  collected_at: string;
-  guestDnsName: string;
-  isCdpReplica: boolean;
-  memorySizeMb: number;
-  connectionState: string;
-  memorySizeHuman: string;
-  guestIpAddresses: string[];
-  guestUsedPercent: number;
-  lastProtectedDate: string | null;
-  guestTotalFreeBytes: number;
-  guestTotalFreeHuman: string;
-  totalAllocatedBytes: number;
-  totalAllocatedHuman: string;
-  totalCommittedBytes: number;
-  totalCommittedHuman: string;
-  virtualDisksSummary: Array<{
-    name: string;
-    capacityBytes: number;
-    capacityHuman: string;
-  }>;
-  datastoreUsageSummary: Array<{
-    unsharedBytes: number;
-    committedBytes: number;
-    committedHuman: string;
-    datastoreMoRef: string;
-    uncommittedBytes: number;
-  }>;
-  guestUsedPercentHuman: string;
-  protectionJobUidsCount: number;
-  guestTotalCapacityBytes: number;
-  guestTotalCapacityHuman: string;
-  virtualDiskCountReported: number;
-  virtualDisksCountCalculated: number;
+  json: {
+    name: string | null | undefined;
+    vmId: number;
+    moRef: string;
+    notes: string | null;
+    guestOs: string;
+    category: string;
+    cpuCount: number;
+    isReplica: boolean;
+    dedupe_key: string;
+    powerState: string;
+    isProtected: boolean;
+    collected_at: string;
+    guestDnsName: string | null;
+    isCdpReplica: boolean;
+    memorySizeMb: number;
+    connectionState: string;
+    memorySizeHuman: string;
+    guestIpAddresses: string[];
+    guestUsedPercent: number;
+    lastProtectedDate: string | null;
+    guestTotalFreeBytes: number;
+    guestTotalFreeHuman: string;
+    totalAllocatedBytes: number;
+    totalAllocatedHuman: string;
+    totalCommittedBytes: number;
+    totalCommittedHuman: string;
+    virtualDisksSummary: Array<{
+      name: string;
+      capacityBytes: number;
+      capacityHuman: string;
+    }>;
+    datastoreUsageSummary: Array<{
+      unsharedBytes: number;
+      committedBytes: number;
+      committedHuman: string;
+      datastoreMoRef: string;
+      uncommittedBytes: number;
+    }>;
+    guestUsedPercentHuman: string;
+    protectionJobUidsCount: number;
+    guestTotalCapacityBytes: number;
+    guestTotalCapacityHuman: string;
+    virtualDiskCountReported: number;
+    virtualDisksCountCalculated: number;
+  };
+  pairedItem?: any; // or define more precisely if needed
 }
 
 export interface VeeamVM {
@@ -177,40 +180,47 @@ export const useVeeamInfrastructure = (
 
   // Filter VMs
   const filteredVMs = useMemo(() => {
-    return vms.filter((vm) => {
-      const rawJson = vm.raw_json;
+    return vms
+      .filter((vm) => {
+        const raw = vm.raw_json?.json;
 
-      // Search filter - by VM name, DNS name, or IP address
-      if (debouncedSearch) {
-        const search = debouncedSearch.toLowerCase();
-        const matchesName = rawJson.name?.toLowerCase().includes(search);
-        const matchesDns = rawJson.guestDnsName?.toLowerCase().includes(search);
-        const matchesIp = rawJson.guestIpAddresses?.some((ip) =>
-          ip.toLowerCase().includes(search)
-        );
-        if (!matchesName && !matchesDns && !matchesIp) return false;
-      }
+        // Skip entries that don't have the expected nested structure
+        if (!raw) return false;
 
-      // Power state filter
-      if (filterPowerState) {
-        if (rawJson.powerState !== filterPowerState) return false;
-      }
+        // Search filter - by VM name, DNS name, or IP address
+        if (debouncedSearch) {
+          const search = debouncedSearch.toLowerCase();
+          const matchesName = (raw.name ?? "").toLowerCase().includes(search);
+          const matchesDns = (raw.guestDnsName ?? "").toLowerCase().includes(search);
+          const matchesIp = (raw.guestIpAddresses ?? []).some((ip) =>
+            ip.toLowerCase().includes(search)
+          );
+          if (!matchesName && !matchesDns && !matchesIp) return false;
+        }
 
-      // Protection status filter
-      if (filterProtection) {
-        const isProtected = rawJson.isProtected;
-        if (filterProtection === "Protected" && !isProtected) return false;
-        if (filterProtection === "Not Protected" && isProtected) return false;
-      }
+        // Power state filter
+        if (filterPowerState && raw.powerState !== filterPowerState) {
+          return false;
+        }
 
-      // Category filter
-      if (filterCategory && vm.Category !== filterCategory) return false;
+        // Protection status filter
+        if (filterProtection) {
+          const isProtected = raw.isProtected ?? false;
+          if (filterProtection === "Protected" && !isProtected) return false;
+          if (filterProtection === "Not Protected" && isProtected) return false;
+        }
 
-      return true;
-    }).sort((a, b) => {
-      // Sort by name alphabetically
-      return a.raw_json.name.localeCompare(b.raw_json.name);
-    });
+        // Category filter (top-level)
+        if (filterCategory && vm.Category !== filterCategory) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by name alphabetically - safe against null/undefined
+        const nameA = a.raw_json?.json?.name ?? "";
+        const nameB = b.raw_json?.json?.name ?? "";
+        return nameA.localeCompare(nameB);
+      });
   }, [vms, debouncedSearch, filterPowerState, filterProtection, filterCategory]);
 
   // Pagination
@@ -219,7 +229,7 @@ export const useVeeamInfrastructure = (
   // Keep page in valid range
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      setCurrentPage(totalPages || 1);
     }
   }, [totalPages, currentPage]);
 
@@ -228,9 +238,12 @@ export const useVeeamInfrastructure = (
     return filteredVMs.slice(start, start + pageSize);
   }, [filteredVMs, currentPage, pageSize]);
 
-  const goToPage = useCallback((page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  }, [totalPages]);
+  const goToPage = useCallback(
+    (page: number) => {
+      setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    },
+    [totalPages]
+  );
 
   const nextPage = useCallback(() => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
@@ -244,10 +257,10 @@ export const useVeeamInfrastructure = (
   const counts = useMemo(() => {
     return {
       total: vms.length,
-      poweredOn: vms.filter((vm) => vm.raw_json.powerState === "PoweredOn").length,
-      poweredOff: vms.filter((vm) => vm.raw_json.powerState === "PoweredOff").length,
-      protected: vms.filter((vm) => vm.raw_json.isProtected).length,
-      unprotected: vms.filter((vm) => !vm.raw_json.isProtected).length,
+      poweredOn: vms.filter((vm) => vm.raw_json?.json?.powerState === "PoweredOn").length,
+      poweredOff: vms.filter((vm) => vm.raw_json?.json?.powerState === "PoweredOff").length,
+      protected: vms.filter((vm) => vm.raw_json?.json?.isProtected === true).length,
+      unprotected: vms.filter((vm) => vm.raw_json?.json?.isProtected === false).length,
     };
   }, [vms]);
 

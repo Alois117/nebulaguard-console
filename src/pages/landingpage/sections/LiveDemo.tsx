@@ -3,7 +3,7 @@ import { FiActivity, FiTrendingUp, FiCheckCircle, FiAlertCircle } from "react-ic
 import { useState, useEffect } from "react";
 
 const LiveDemo = () => {
-  const [activeHosts, setActiveHosts] = useState(1847);
+  const [activeHosts, setActiveHosts] = useState(127);
   const [alerts, setAlerts] = useState(3);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const LiveDemo = () => {
         {[...Array(30)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-2 h-2 rounded-full bg-[#00f0ff]/30"
+            className="absolute w-2 h-2 rounded-full bg-[#43BFC7]/30"
             initial={{
               x: Math.random() * window.innerWidth,
               y: Math.random() * window.innerHeight,
@@ -48,8 +48,8 @@ const LiveDemo = () => {
           className="text-center mb-16"
         >
           <h2 className="text-5xl md:text-6xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-[#00f0ff] to-[#d900ff] bg-clip-text text-transparent">
-              See Jarvis in Action
+            <span className="bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent">
+              See Sentramind Avis in Action
             </span>
           </h2>
           <p className="text-xl text-muted-foreground">No Signup Needed</p>
@@ -60,10 +60,10 @@ const LiveDemo = () => {
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="glass-card p-8 rounded-3xl border border-[#00f0ff]/30 relative overflow-hidden"
+          className="glass-card p-8 rounded-3xl border border-[#43BFC7]/30 relative overflow-hidden"
         >
           {/* Neon glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00f0ff]/10 via-transparent to-[#d900ff]/10" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#43BFC7]/10 via-transparent to-[#FAA41E]/10" />
 
           <div className="relative z-10">
             {/* Header */}
@@ -78,7 +78,7 @@ const LiveDemo = () => {
                   <p className="text-sm text-muted-foreground">Active Hosts</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-[#ff006e]">{alerts}</p>
+                  <p className="text-3xl font-bold text-[#FAA41E]">{alerts}</p>
                   <p className="text-sm text-muted-foreground">Active Alerts</p>
                 </div>
               </div>
@@ -99,31 +99,31 @@ const LiveDemo = () => {
               <motion.div
                 animate={{ scale: [1, 1.02, 1] }}
                 transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                className="p-6 bg-background/50 rounded-2xl border border-[#00f0ff]/30"
+                className="p-6 bg-background/50 rounded-2xl border border-[#43BFC7]/30"
               >
-                <FiActivity className="w-8 h-8 text-[#00f0ff] mb-3" />
+                <FiActivity className="w-8 h-8 text-[#43BFC7] mb-3" />
                 <p className="text-sm text-muted-foreground mb-1">Avg Response</p>
-                <p className="text-3xl font-bold text-[#00f0ff]">142ms</p>
+                <p className="text-3xl font-bold text-[#43BFC7]">142ms</p>
               </motion.div>
 
               <motion.div
                 animate={{ scale: [1, 1.02, 1] }}
                 transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-                className="p-6 bg-background/50 rounded-2xl border border-[#d900ff]/30"
+                className="p-6 bg-background/50 rounded-2xl border border-[#FAA41E]/30"
               >
-                <FiTrendingUp className="w-8 h-8 text-[#d900ff] mb-3" />
+                <FiTrendingUp className="w-8 h-8 text-[#FAA41E] mb-3" />
                 <p className="text-sm text-muted-foreground mb-1">CPU Usage</p>
-                <p className="text-3xl font-bold text-[#d900ff]">34%</p>
+                <p className="text-3xl font-bold text-[#FAA41E]">34%</p>
               </motion.div>
 
               <motion.div
                 animate={{ scale: [1, 1.02, 1] }}
                 transition={{ duration: 2, repeat: Infinity, delay: 1.5 }}
-                className="p-6 bg-background/50 rounded-2xl border border-[#ff006e]/30"
+                className="p-6 bg-background/50 rounded-2xl border border-[#43BFC7]/30"
               >
-                <FiAlertCircle className="w-8 h-8 text-[#ff006e] mb-3" />
+                <FiAlertCircle className="w-8 h-8 text-[#43BFC7] mb-3" />
                 <p className="text-sm text-muted-foreground mb-1">Predictions</p>
-                <p className="text-3xl font-bold text-[#ff006e]">12</p>
+                <p className="text-3xl font-bold text-[#43BFC7]">12</p>
               </motion.div>
             </div>
 
@@ -132,9 +132,9 @@ const LiveDemo = () => {
               <h4 className="text-lg font-semibold text-foreground mb-4">Recent AI Insights</h4>
               
               {[
-                { text: "Predicted disk failure on db-prod-03 in 11 days", color: "ff006e", time: "2s ago" },
+                { text: "Predicted disk failure on db-prod-03 in 11 days", color: "FAA41E", time: "2s ago" },
                 { text: "Auto-scaled cluster-07 to handle traffic spike", color: "39ff14", time: "8s ago" },
-                { text: "Root cause identified: Memory leak in app-node-12", color: "00f0ff", time: "15s ago" },
+                { text: "Root cause identified: Memory leak in app-node-12", color: "43BFC7", time: "15s ago" },
               ].map((insight, i) => (
                 <motion.div
                   key={i}
@@ -157,7 +157,7 @@ const LiveDemo = () => {
               className="mt-8 text-center p-4 bg-[#39ff14]/10 rounded-xl border border-[#39ff14]/30"
             >
               <p className="text-[#39ff14] font-semibold">
-                💡 This AI insight saved Binance $340k last quarter
+                Avis enables quicker identification of issues and also Reduces noise / alert fatigue.
               </p>
             </motion.div>
           </div>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Table,
-  TableBody,
+  TableBody, 
   TableCell,
   TableHead,
   TableHeader,
@@ -599,9 +599,18 @@ const UserVeeam = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <AnimatePresence mode="popLayout">
                     {infraHook.paginatedVMs.map((vm, index) => {
-                      const rawJson = vm.raw_json;
-                      const isPoweredOn = rawJson.powerState === "PoweredOn";
-                      const isProtected = rawJson.isProtected;
+                      const data = vm.raw_json?.json; // ← central safe access point
+
+                      if (!data) {
+                        return (
+                          <Card key={vm.VM_id} className="p-6 text-center text-muted-foreground">
+                            Invalid VM data
+                          </Card>
+                        );
+                      }
+
+                      const isPoweredOn = data.powerState === "PoweredOn";
+                      const isProtected = !!data.isProtected;
 
                       return (
                         <motion.div
@@ -624,8 +633,10 @@ const UserVeeam = () => {
                               </div>
                               <div className="flex-1 min-w-0">
                                 {/* VM Name */}
-                                <h4 className="font-semibold truncate">{rawJson.name}</h4>
-                                
+                                <h4 className="font-semibold truncate">
+                                  {data.name || "Unnamed VM"}
+                                </h4>
+
                                 {/* Power & Connection State */}
                                 <div className="flex items-center gap-2 mt-1">
                                   <Badge
@@ -636,17 +647,17 @@ const UserVeeam = () => {
                                         : "text-muted-foreground border-muted/30"
                                     }`}
                                   >
-                                    {rawJson.powerState}
+                                    {data.powerState || "Unknown"}
                                   </Badge>
                                   <Badge
                                     variant="outline"
                                     className={`text-xs ${
-                                      rawJson.connectionState === "Connected"
+                                      data.connectionState === "Connected"
                                         ? "text-primary border-primary/30"
                                         : "text-destructive border-destructive/30"
                                     }`}
                                   >
-                                    {rawJson.connectionState}
+                                    {data.connectionState || "Unknown"}
                                   </Badge>
                                 </div>
 
@@ -657,14 +668,14 @@ const UserVeeam = () => {
                                       <Cpu className="w-3.5 h-3.5" />
                                       CPU
                                     </span>
-                                    <span className="font-medium">{rawJson.cpuCount} vCPU</span>
+                                    <span className="font-medium">{data.cpuCount ?? "?"} vCPU</span>
                                   </div>
                                   <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground flex items-center gap-1">
                                       <Server className="w-3.5 h-3.5" />
                                       Memory
                                     </span>
-                                    <span className="font-medium">{rawJson.memorySizeHuman}</span>
+                                    <span className="font-medium">{data.memorySizeHuman || "? GB"}</span>
                                   </div>
                                   <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground flex items-center gap-1">
@@ -672,7 +683,7 @@ const UserVeeam = () => {
                                       Disk
                                     </span>
                                     <span className="font-medium text-xs">
-                                      {rawJson.totalCommittedHuman} / {rawJson.totalAllocatedHuman}
+                                      {data.totalCommittedHuman || "?"} / {data.totalAllocatedHuman || "?"}
                                     </span>
                                   </div>
                                 </div>
@@ -685,7 +696,7 @@ const UserVeeam = () => {
                                       Last Backup
                                     </span>
                                     <span className="font-medium text-xs">
-                                      {formatLastBackup(rawJson.lastProtectedDate)}
+                                      {formatLastBackup(data.lastProtectedDate)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between">

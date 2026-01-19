@@ -64,7 +64,7 @@ const Signup = () => {
             <Zap className="w-6 h-6 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-glow-primary">Jarvis</h1>
+            <h1 className="text-3xl font-bold text-glow-primary">Avis</h1>
             <p className="text-xs text-muted-foreground">AI Monitoring Platform</p>
           </div>
         </div>

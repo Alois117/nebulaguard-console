@@ -14,7 +14,6 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: ServerIcon, label: "Zabbix", path: "/dashboard/zabbix" },
   { icon: Database, label: "Veeam", path: "/dashboard/veeam" },
-  { icon: Radio, label: "Traps", path: "/dashboard/traps" },
   { icon: Lightbulb, label: "Insights", path: "/dashboard/insights" },
   { icon: FileText, label: "Reports", path: "/dashboard/reports" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
@@ -35,8 +34,8 @@ const UserLayout = ({ children }: UserLayoutProps) => {
               <Zap className="w-4 h-4 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Jarvis
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent">
+                Avis
               </h1>
               <p className="text-xs text-muted-foreground">AI Monitoring</p>
             </div>

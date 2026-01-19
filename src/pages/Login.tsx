@@ -23,7 +23,7 @@ const Login = () => {
     setTimeout(() => {
       const user = mockLogin(email, password, role);
       if (user) {
-        toast.success(`Welcome to Jarvis™ (${role})`);
+        toast.success(`Welcome to Avis™ (${role})`);
         // Navigate to role-specific dashboard
         if (role === 'super_admin') {
           navigate("/super-admin");
@@ -65,7 +65,7 @@ const Login = () => {
               <Zap className="w-6 h-6 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold mb-2 text-glow-primary">Jarvis™</h1>
+          <h1 className="text-4xl font-bold mb-2 text-glow-primary">Avis™</h1>
           <p className="text-muted-foreground">AI-Powered Monitoring Intelligence</p>
         </div>
 
@@ -79,7 +79,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@jarvis.ai"
+                  placeholder="admin@avis.ai"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-surface/50 border-border/50 focus:border-primary transition-colors"
@@ -148,7 +148,7 @@ const Login = () => {
         {/* Footer */}
         <div className="mt-8 text-center text-xs text-muted-foreground">
           <p>Enterprise-Grade Monitoring • AI-Powered Insights</p>
-          <p className="mt-2">© 2025 Jarvis™. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Avis. All rights reserved.</p>
         </div>
       </div>
     </div>

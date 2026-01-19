@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiMenu, FiX } from "react-icons/fi";
-import ThemeSwitcher from "./ThemeSwitcher";
+import avisLogo from "@/assets/avis-logo.png";
 
 const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -28,7 +28,6 @@ const Navigation = () => {
     { name: "Features", id: "features" },
     { name: "Demo", id: "demo" },
     { name: "Pricing", id: "pricing" },
-    { name: "Contact", id: "contact" },
   ];
 
   return (
@@ -43,27 +42,29 @@ const Navigation = () => {
         <div
           className={`glass-surface rounded-2xl px-6 py-4 border-2 transition-all duration-300 ${
             isScrolled
-              ? "border-primary/30 shadow-[0_0_30px_rgba(0,240,255,0.2)]"
+              ? "border-[#43BFC7]/30 shadow-[0_0_30px_rgba(67,191,199,0.2)]"
               : "border-border/20"
           }`}
           style={{
             background: isScrolled
-              ? "rgba(11, 14, 23, 0.8)"
-              : "rgba(11, 14, 23, 0.4)",
+              ? "rgba(4, 20, 60, 0.9)"
+              : "rgba(4, 20, 60, 0.6)",
           }}
         >
           <div className="flex items-center justify-between">
             {/* Logo */}
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-3 cursor-pointer"
+              className="flex items-center gap-4 cursor-pointer"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center glow-primary">
-                <span className="text-xl font-bold text-background">J</span>
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Jarvis™
+              <img
+                src={avisLogo}
+                alt="Avis Logo"
+                className="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-[0_0_8px_rgba(67,191,199,0.4)]"
+              />
+              <span className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent">
+                Avis™
               </span>
             </motion.div>
 
@@ -74,44 +75,45 @@ const Navigation = () => {
                   key={link.id}
                   onClick={() => scrollToSection(link.id)}
                   whileHover={{ scale: 1.05 }}
-                  className="text-foreground hover:text-primary transition-colors relative group"
+                  className="text-foreground hover:text-[#43BFC7] transition-colors relative group"
                 >
                   {link.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-secondary group-hover:w-full transition-all duration-300" />
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] group-hover:w-full transition-all duration-300" />
                 </motion.button>
               ))}
             </div>
 
             {/* Desktop Actions */}
             <div className="hidden lg:flex items-center gap-4">
-              <ThemeSwitcher />
-              
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-6 py-2 text-foreground hover:text-primary transition-colors"
+                className="px-6 py-2 text-foreground hover:text-[#43BFC7] transition-colors"
                 onClick={() => (window.location.href = "/login")}
               >
                 Sign In
               </motion.button>
 
+              {/* Book Demo - now opens modal */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-6 py-2.5 bg-gradient-to-r from-primary via-secondary to-accent rounded-xl text-background font-semibold hover:shadow-[0_0_40px_rgba(0,240,255,0.6)] transition-all relative overflow-hidden group"
+                className="px-6 py-2.5 bg-gradient-to-r from-[#FAA41E] to-[#e8941a] rounded-xl text-[#04143C] font-semibold hover:shadow-[0_0_40px_rgba(250,164,30,0.6)] transition-all relative overflow-hidden group"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("open-demo-modal"));
+                }}
               >
-                <span className="relative z-10">Start Free Trial</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-accent via-secondary to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10">Book Your Demo</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#e8941a] to-[#FAA41E] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </motion.button>
             </div>
 
             {/* Mobile Menu Button */}
             <div className="lg:hidden flex items-center gap-4">
-              <ThemeSwitcher />
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 text-foreground hover:text-primary transition-colors"
+                className="p-2 text-foreground hover:text-[#43BFC7] transition-colors"
               >
                 {isMobileMenuOpen ? (
                   <FiX className="w-6 h-6" />
@@ -133,7 +135,10 @@ const Navigation = () => {
             exit={{ opacity: 0, height: 0 }}
             className="lg:hidden mt-2 mx-6 overflow-hidden"
           >
-            <div className="glass-surface rounded-2xl p-6 border-2 border-primary/20">
+            <div
+              className="glass-surface rounded-2xl p-6 border-2 border-[#43BFC7]/20"
+              style={{ background: "rgba(4, 20, 60, 0.95)" }}
+            >
               <div className="flex flex-col gap-4">
                 {navLinks.map((link, i) => (
                   <motion.button
@@ -142,28 +147,36 @@ const Navigation = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.1 }}
                     onClick={() => scrollToSection(link.id)}
-                    className="text-left py-3 px-4 text-foreground hover:text-primary hover:bg-surface/50 rounded-lg transition-all"
+                    className="text-left py-3 px-4 text-foreground hover:text-[#43BFC7] hover:bg-[#43BFC7]/10 rounded-lg transition-all"
                   >
                     {link.name}
                   </motion.button>
                 ))}
+
                 <div className="h-px bg-border my-2" />
+
                 <motion.button
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="py-3 px-4 text-foreground hover:text-primary hover:bg-surface/50 rounded-lg transition-all text-left"
+                  className="py-3 px-4 text-foreground hover:text-[#43BFC7] hover:bg-[#43BFC7]/10 rounded-lg transition-all text-left"
                   onClick={() => (window.location.href = "/login")}
                 >
                   Sign In
                 </motion.button>
+
+                {/* Mobile Book Demo - opens same modal */}
                 <motion.button
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="py-3 px-4 bg-gradient-to-r from-primary via-secondary to-accent rounded-lg text-background font-semibold hover:shadow-[0_0_40px_rgba(0,240,255,0.6)] transition-all"
+                  className="py-3 px-4 bg-gradient-to-r from-[#FAA41E] to-[#e8941a] rounded-lg text-[#04143C] font-semibold hover:shadow-[0_0_40px_rgba(250,164,30,0.6)] transition-all"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open-demo-modal"));
+                    setIsMobileMenuOpen(false);
+                  }}
                 >
-                  Start Free Trial
+                  Book Your Demo
                 </motion.button>
               </div>
             </div>

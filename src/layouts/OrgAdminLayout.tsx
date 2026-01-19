@@ -15,12 +15,9 @@ const menuItems = [
   { icon: Users, label: "User Management", path: "/admin/users" },
   { icon: CreditCard, label: "Billing", path: "/admin/billing" },
   { icon: BarChart3, label: "Usage Meters", path: "/admin/usage" },
-  { icon: AlertCircle, label: "Alerts Config", path: "/admin/alerts" },
   { icon: Clock, label: "On-Call", path: "/admin/oncall" },
   { icon: ServerIcon, label: "Zabbix", path: "/admin/zabbix-monitoring" },
-  { icon: ServerIcon, label: "Zabbix Hosts", path: "/admin/zabbix" },
   { icon: Wrench, label: "Maintenance", path: "/admin/maintenance" },
-  { icon: Brain, label: "AI Settings", path: "/admin/ai" },
 ];
 
 const OrgAdminLayout = ({ children }: OrgAdminLayoutProps) => {
@@ -38,8 +35,8 @@ const OrgAdminLayout = ({ children }: OrgAdminLayoutProps) => {
               <Zap className="w-4 h-4 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Jarvis
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent">
+                Avis
               </h1>
               <p className="text-xs text-muted-foreground">AI Monitoring</p>
             </div>

@@ -29,7 +29,7 @@ const FinalCTA = () => {
   return (
     <section className="relative py-20 overflow-hidden">
       {/* Animated gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#00f0ff]/20 via-[#d900ff]/20 to-[#ff006e]/20 animate-gradient-shift" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#43BFC7]/20 via-[#FAA41E]/20 to-[#43BFC7]/20 animate-gradient-shift" />
       
       {/* Neon grid overlay */}
       <div className="absolute inset-0 opacity-10">
@@ -37,8 +37,8 @@ const FinalCTA = () => {
           className="w-full h-full"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(0, 240, 255, 0.5) 2px, transparent 2px),
-              linear-gradient(90deg, rgba(0, 240, 255, 0.5) 2px, transparent 2px)
+              linear-gradient(rgba(67, 191, 199, 0.5) 2px, transparent 2px),
+              linear-gradient(90deg, rgba(67, 191, 199, 0.5) 2px, transparent 2px)
             `,
             backgroundSize: '100px 100px'
           }}
@@ -59,7 +59,7 @@ const FinalCTA = () => {
             viewport={{ once: true }}
             className="text-3xl md:text-5xl font-bold mb-8 leading-tight"
           >
-            <span className="bg-gradient-to-r from-[#00f0ff] via-[#d900ff] to-[#ff006e] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#43BFC7] via-[#FAA41E] to-[#43BFC7] bg-clip-text text-transparent">
               The Last Monitoring Tool
               <br />
               You Will Ever Need
@@ -85,13 +85,13 @@ const FinalCTA = () => {
               ].map((item, i) => (
                 <div
                   key={item.label}
-                  className="glass-card p-6 rounded-2xl border border-[#00f0ff]/30 min-w-[100px]"
+                  className="glass-card p-6 rounded-2xl border border-[#43BFC7]/30 min-w-[100px]"
                 >
                   <motion.div
                     key={item.value}
                     initial={{ scale: 1.2, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#00f0ff] to-[#d900ff] bg-clip-text text-transparent mb-2"
+                    className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent mb-2"
                   >
                     {item.value.toString().padStart(2, '0')}
                   </motion.div>
@@ -109,16 +109,16 @@ const FinalCTA = () => {
             transition={{ delay: 0.4 }}
             className="max-w-2xl mx-auto mb-8"
           >
-            <div className="glass-card p-3 rounded-3xl border border-[#00f0ff]/30 flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 flex items-center gap-3 px-4 py-2 bg-background/50 rounded-2xl">
-                <FiMail className="w-5 h-5 text-[#00f0ff]" />
+            <div className="glass-card p-3 rounded-3xl border border-[#43BFC7]/30 flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 flex items-center gap-3 px-4 py-2 bg-[#04143C]/50 rounded-2xl">
+                <FiMail className="w-5 h-5 text-[#43BFC7]" />
                 <input
                   type="email"
                   placeholder="Enter your email for magic link signup"
                   className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
                 />
               </div>
-              <button className="px-8 py-4 bg-gradient-to-r from-[#00f0ff] via-[#d900ff] to-[#ff006e] rounded-2xl font-bold text-background hover:shadow-[0_0_30px_rgba(0,240,255,0.6)] transition-all hover:scale-105 flex items-center justify-center gap-2">
+              <button className="px-8 py-4 bg-gradient-to-r from-[#FAA41E] to-[#e8941a] rounded-2xl font-bold text-[#04143C] hover:shadow-[0_0_30px_rgba(250,164,30,0.6)] transition-all hover:scale-105 flex items-center justify-center gap-2">
                 Get Started Free
                 <FiArrowRight />
               </button>
@@ -157,7 +157,7 @@ const FinalCTA = () => {
             key={i}
             className="absolute w-2 h-2 rounded-full"
             style={{
-              background: `radial-gradient(circle, ${['#00f0ff', '#d900ff', '#ff006e'][i % 3]}, transparent)`,
+              background: `radial-gradient(circle, ${['#43BFC7', '#FAA41E', '#43BFC7'][i % 3]}, transparent)`,
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`
             }}

@@ -3,12 +3,12 @@ import { SiReact, SiTypescript, SiPython, SiKubernetes, SiTerraform, SiRedis } f
 import { FiShield, FiCheck } from "react-icons/fi";
 
 const technologies = [
-  { name: "FastAPI", icon: SiPython, color: "#00f0ff" },
-  { name: "TypeScript", icon: SiTypescript, color: "#d900ff" },
-  { name: "React 19", icon: SiReact, color: "#00f0ff" },
-  { name: "Redis Streams", icon: SiRedis, color: "#ff006e" },
+  { name: "FastAPI", icon: SiPython, color: "#43BFC7" },
+  { name: "TypeScript", icon: SiTypescript, color: "#FAA41E" },
+  { name: "React 19", icon: SiReact, color: "#43BFC7" },
+  { name: "Redis Streams", icon: SiRedis, color: "#FAA41E" },
   { name: "Kubernetes", icon: SiKubernetes, color: "#39ff14" },
-  { name: "Terraform", icon: SiTerraform, color: "#d900ff" },
+  { name: "Terraform", icon: SiTerraform, color: "#43BFC7" },
 ];
 
 const compliance = [
@@ -29,7 +29,7 @@ const Technology = () => {
           className="text-center mb-16"
         >
           <h2 className="text-5xl md:text-6xl pt-24 font-bold mb-4">
-            <span className="bg-gradient-to-r from-[#39ff14] to-[#00f0ff] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#39ff14] to-[#43BFC7] bg-clip-text text-transparent">
               Built on Modern Tech
             </span>
           </h2>
@@ -43,9 +43,9 @@ const Technology = () => {
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="glass-card p-12 rounded-3xl border border-[#00f0ff]/30 mb-16 relative overflow-hidden"
+          className="glass-card p-12 rounded-3xl border border-[#43BFC7]/30 mb-16 relative overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00f0ff]/5 via-transparent to-[#39ff14]/5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#43BFC7]/5 via-transparent to-[#39ff14]/5" />
           
           <div className="relative z-10">
             {/* Technology badges */}
@@ -60,7 +60,7 @@ const Technology = () => {
                   className="flex flex-col items-center gap-3 group"
                 >
                   <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center border border-border/50 group-hover:border-[#00f0ff] transition-all group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center border border-border/50 group-hover:border-[#43BFC7] transition-all group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(67,191,199,0.3)]"
                     style={{ backgroundColor: `${tech.color}15` }}
                   >
                     <tech.icon className="w-8 h-8" style={{ color: tech.color }} />
@@ -79,7 +79,7 @@ const Technology = () => {
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.2 }}
-                    className="glass-card p-4 rounded-xl border border-[#00f0ff]/30 text-center min-w-[120px]"
+                    className="glass-card p-4 rounded-xl border border-[#43BFC7]/30 text-center min-w-[120px]"
                   >
                     <p className="text-sm font-semibold text-foreground">{layer}</p>
                   </motion.div>
@@ -89,7 +89,7 @@ const Technology = () => {
                       whileInView={{ scaleX: 1 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.2 + 0.1 }}
-                      className="h-0.5 w-8 bg-gradient-to-r from-[#00f0ff] to-[#d900ff]"
+                      className="h-0.5 w-8 bg-gradient-to-r from-[#43BFC7] to-[#FAA41E]"
                     />
                   )}
                 </div>

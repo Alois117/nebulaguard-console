@@ -16,10 +16,8 @@ const menuItems = [
   { icon: BarChart4, label: "Global Analytics", path: "/super-admin/analytics" },
   { icon: Shield, label: "Security Logs", path: "/super-admin/security-logs" },
   { icon: CreditCard, label: "Multi-Tenant Billing", path: "/super-admin/billing" },
-  { icon: Database, label: "Disaster Recovery", path: "/super-admin/recovery" },
   { icon: Cpu, label: "AI/ML Performance", path: "/super-admin/aiml" },
   { icon: ToggleLeft, label: "Feature Flags", path: "/super-admin/features" },
-  { icon: Store, label: "Reseller Portal", path: "/super-admin/reseller" },
 ];
 
 const SuperAdminLayout = ({ children }: SuperAdminLayoutProps) => {
@@ -37,8 +35,8 @@ const SuperAdminLayout = ({ children }: SuperAdminLayoutProps) => {
               <Zap className="w-4 h-4 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Jarvis
+              <h1 className="text-xl font-bold bg-gradient-to-r from-[#43BFC7] to-[#FAA41E] bg-clip-text text-transparent">
+                Avis
               </h1>
               <p className="text-xs text-muted-foreground">AI Monitoring</p>
             </div>

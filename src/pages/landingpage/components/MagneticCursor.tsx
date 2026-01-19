@@ -44,7 +44,7 @@ const MagneticCursor = () => {
         }}
       />
       <motion.div
-        className="fixed w-8 h-8 rounded-full border-2 border-[#d900ff] pointer-events-none z-50 mix-blend-screen"
+        className="fixed w-8 h-8 rounded-full border-2 border-[#FAA41E] pointer-events-none z-50 mix-blend-screen"
         style={{
           left: mousePosition.x,
           top: mousePosition.y,

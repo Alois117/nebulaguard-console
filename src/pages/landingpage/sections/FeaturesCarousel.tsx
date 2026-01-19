@@ -5,59 +5,38 @@ import { useRef } from "react";
 const features = [
   {
     icon: FiCpu,
-    title: "AI Root Cause Analysis",
-    subtitle: "<1s",
-    description: "Neural networks analyze patterns across 10M+ data points to pinpoint the exact cause instantly",
-    gradient: "from-[#00f0ff] to-[#d900ff]"
+    title: "AI-Powered Cause Detection",
+    subtitle: "Faster Insights & Fixes",
+    description: "Let AI find the root cause in seconds instead of hours of searching",
+    gradient: "from-[#43BFC7] to-[#FAA41E]"
   },
   {
     icon: FiZap,
-    title: "Real-Time Event Streaming",
-    subtitle: "WebSocket Powered",
-    description: "Sub-millisecond updates with Redis Streams. Zero polling, infinite scale",
-    gradient: "from-[#d900ff] to-[#ff006e]"
+    title: "Near Real-Time Alerts & Events",
+    subtitle: "Fast, Reliable Updates",
+    description: "Alerts are detected and delivered within minutes, giving you timely visibility without manual checks",
+    gradient: "from-[#FAA41E] to-[#43BFC7]"
   },
   {
     icon: FiTarget,
-    title: "Smart Traps Intelligence",
-    subtitle: "Auto-Classify",
-    description: "AI categorizes and prioritizes SNMP traps. Reduces false positives by 94%",
-    gradient: "from-[#ff006e] to-[#39ff14]"
+    title: "Intelligent Alert Prioritization",
+    subtitle: "Smart Filtering",
+    description: "AI groups related alerts, reduces noise, and helps focus on what matters most",
+    gradient: "from-[#43BFC7] to-[#FAA41E]"
   },
   {
     icon: FiShield,
-    title: "One-Click Auto-Remediation",
-    subtitle: "Self-Healing",
-    description: "AI executes fixes autonomously. Approve once, trust forever with rollback protection",
-    gradient: "from-[#39ff14] to-[#00f0ff]"
+    title: "Guided Remediation",
+    subtitle: "Action Recommendations",
+    description: "Clear, step-by-step suggestions to resolve common issues quickly and safely",
+    gradient: "from-[#FAA41E] to-[#43BFC7]"
   },
   {
     icon: FiUsers,
-    title: "Enterprise RBAC",
-    subtitle: "Multi-Tenant",
-    description: "Granular permissions, SSO integration, audit logs. Built for Fortune 500 compliance",
-    gradient: "from-[#00f0ff] to-[#d900ff]"
-  },
-  {
-    icon: FiPackage,
-    title: "White-Label Ready",
-    subtitle: "Reseller Program",
-    description: "Custom domains, branding, billing. Launch your own monitoring SaaS in 48 hours",
-    gradient: "from-[#d900ff] to-[#ff006e]"
-  },
-  {
-    icon: FiWifi,
-    title: "Offline PWA Mode",
-    subtitle: "Works Anywhere",
-    description: "Access dashboards without internet. Data syncs when you reconnect",
-    gradient: "from-[#ff006e] to-[#39ff14]"
-  },
-  {
-    icon: FiMoreHorizontal,
-    title: "And 47 More Features",
-    subtitle: "Enterprise Suite",
-    description: "Explore our complete feature set including custom integrations and API access",
-    gradient: "from-[#39ff14] to-[#00f0ff]"
+    title: "Enterprise-Grade Access Control",
+    subtitle: "RBAC",
+    description: "Granular role-based permissions, Multi-team & multi-tenant organization",
+    gradient: "from-[#43BFC7] to-[#FAA41E]"
   }
 ];
 
@@ -73,7 +52,7 @@ const FeaturesCarousel = () => {
           viewport={{ once: true }}
           className="text-5xl md:text-6xl font-bold text-center mb-4"
         >
-          <span className="bg-gradient-to-r from-[#00f0ff] via-[#d900ff] to-[#ff006e] bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[#43BFC7] via-[#FAA41E] to-[#43BFC7] bg-clip-text text-transparent">
             Enterprise-Grade Features
           </span>
         </motion.h2>
@@ -104,14 +83,14 @@ const FeaturesCarousel = () => {
               transition={{ delay: index * 0.1 }}
               className="snap-center flex-shrink-0 w-[350px] group"
             >
-              <div className="glass-card p-8 rounded-3xl border border-border/50 hover:border-[#00f0ff]/50 transition-all h-full relative overflow-hidden group-hover:translate-y-[-10px] duration-300">
+              <div className="glass-card p-8 rounded-3xl border border-border/50 hover:border-[#43BFC7]/50 transition-all h-full relative overflow-hidden group-hover:translate-y-[-10px] duration-300">
                 {/* Gradient overlay */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
                 
                 <div className="relative z-10">
                   {/* Icon */}
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} p-3 mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="w-full h-full text-background" />
+                    <feature.icon className="w-full h-full text-[#04143C]" />
                   </div>
 
                   {/* Title */}
@@ -120,7 +99,7 @@ const FeaturesCarousel = () => {
                   </h3>
 
                   {/* Subtitle */}
-                  <div className={`inline-block px-3 py-1 rounded-full bg-gradient-to-r ${feature.gradient} text-background text-sm font-semibold mb-4`}>
+                  <div className={`inline-block px-3 py-1 rounded-full bg-gradient-to-r ${feature.gradient} text-[#04143C] text-sm font-semibold mb-4`}>
                     {feature.subtitle}
                   </div>
 
@@ -142,7 +121,7 @@ const FeaturesCarousel = () => {
           {features.map((_, index) => (
             <div
               key={index}
-              className="w-2 h-2 rounded-full bg-border hover:bg-[#00f0ff] transition-colors cursor-pointer"
+              className="w-2 h-2 rounded-full bg-border hover:bg-[#43BFC7] transition-colors cursor-pointer"
             />
           ))}
         </div>
