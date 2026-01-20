@@ -18,8 +18,6 @@ import {
   ChevronDown,
   ChevronUp,
   Monitor,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { VeeamVM, formatLastBackup } from "@/hooks/useVeeamInfrastructure";
 
@@ -38,7 +36,11 @@ const VeeamVMDetailDrawer = ({
 
   if (!vm) return null;
 
-  const rawJson = vm.raw_json;
+  // Access the nested json object inside raw_json
+  const rawJson = vm.raw_json?.json;
+  
+  if (!rawJson) return null;
+
   const isPoweredOn = rawJson.powerState === "PoweredOn";
   const isConnected = rawJson.connectionState === "Connected";
   const isProtected = rawJson.isProtected;

@@ -19,7 +19,7 @@ import TwoFAVerify from "./pages/TwoFAVerify";
 import NotFound from "./pages/NotFound";
 
 // Shared Components
-import FloatingAIChat from "./components/ai/FloatingAIChat";
+import FloatingAIChatWrapper from "./components/ai/FloatingAIChatWrapper";
 import CommandPalette from "./components/CommandPalette";
 import RoleBasedRoute from "./components/rbac/RoleBasedRoute";
 
@@ -111,7 +111,7 @@ const App = () => (
           </Routes>
 
           <CommandPalette />
-          <FloatingAIChat />
+          <FloatingAIChatWrapper />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
