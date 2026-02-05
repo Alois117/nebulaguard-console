@@ -2,8 +2,8 @@
  * Reports Drilldown Component
  * Shows detailed reports list for the selected organization
  */
-import { useState, useMemo } from "react";
-import { FileText, CheckCircle, XCircle, RefreshCw, Calendar, Clock } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { FileText, XCircle, RefreshCw, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
 import { format } from "date-fns";
+import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
 
 interface ReportsDrilldownProps {
   orgName: string;
@@ -30,35 +31,63 @@ const typeColors: Record<string, string> = {
   monthly: "border-secondary/30 bg-secondary/10 text-secondary",
 };
 
+/**
+ * Get report display name using fallback chain
+ * Primary: name, title, report_name
+ * Fallback: Report #id
+ */
+const getReportName = (report: ReportItem): string => {
+  if (report.name && report.name !== "Unnamed Report") return report.name;
+  return `Report #${report.id}`;
+};
+
+/**
+ * Get report type with proper casing
+ */
+const getReportType = (report: ReportItem): string => {
+  const type = report.report_type?.toLowerCase() || "daily";
+  return type;
+};
+
 const ReportsDrilldown = ({ orgName, reports, loading, error, onRefresh }: ReportsDrilldownProps) => {
   const [filter, setFilter] = useState<ReportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery]);
 
   const filteredReports = useMemo(() => {
     let result = reports;
 
-    // Apply filter
     if (filter !== "all") {
-      result = result.filter(r => r.report_type === filter);
+      result = result.filter(r => getReportType(r) === filter);
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(r =>
-        r.name.toLowerCase().includes(query) ||
-        r.report_type.toLowerCase().includes(query)
+        getReportName(r).toLowerCase().includes(query) ||
+        getReportType(r).toLowerCase().includes(query)
       );
     }
 
     return result.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
   }, [reports, filter, searchQuery]);
 
+  // Paginated reports
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredReports.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredReports, currentPage]);
+
   const counts = useMemo(() => ({
     all: reports.length,
-    daily: reports.filter(r => r.report_type === "daily").length,
-    weekly: reports.filter(r => r.report_type === "weekly").length,
-    monthly: reports.filter(r => r.report_type === "monthly").length,
+    daily: reports.filter(r => getReportType(r) === "daily").length,
+    weekly: reports.filter(r => getReportType(r) === "weekly").length,
+    monthly: reports.filter(r => getReportType(r) === "monthly").length,
   }), [reports]);
 
   if (error) {
@@ -139,7 +168,7 @@ const ReportsDrilldown = ({ orgName, reports, loading, error, onRefresh }: Repor
                 </div>
               </Card>
             ))
-          ) : filteredReports.length === 0 ? (
+          ) : paginatedReports.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
@@ -147,54 +176,59 @@ const ReportsDrilldown = ({ orgName, reports, loading, error, onRefresh }: Repor
               </p>
             </Card>
           ) : (
-            filteredReports.map((report) => (
-              <Card 
-                key={report.id} 
-                className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 rounded-lg bg-secondary/10 border border-secondary/20">
-                    <FileText className="w-5 h-5 text-secondary" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{report.name}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>{format(report.created_at, "PPP")}</span>
+            paginatedReports.map((report) => {
+              const reportType = getReportType(report);
+              return (
+                <Card 
+                  key={report.id} 
+                  className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2.5 rounded-lg bg-secondary/10 border border-secondary/20">
+                      <FileText className="w-5 h-5 text-secondary" />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{getReportName(report)}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="w-3 h-3" />
+                        <span>{format(report.created_at, "PPP")}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge 
+                        variant="outline"
+                        className={`text-xs capitalize ${typeColors[reportType] || typeColors.daily}`}
+                      >
+                        {reportType}
+                      </Badge>
+                      <Badge 
+                        variant="outline"
+                        className={`text-xs ${
+                          report.status === "completed"
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-warning/30 bg-warning/10 text-warning"
+                        }`}
+                      >
+                        {report.status}
+                      </Badge>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge 
-                      variant="outline"
-                      className={`text-xs capitalize ${typeColors[report.report_type] || typeColors.daily}`}
-                    >
-                      {report.report_type}
-                    </Badge>
-                    <Badge 
-                      variant="outline"
-                      className={`text-xs ${
-                        report.status === "completed"
-                          ? "border-success/30 bg-success/10 text-success"
-                          : "border-warning/30 bg-warning/10 text-warning"
-                      }`}
-                    >
-                      {report.status}
-                    </Badge>
-                  </div>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
       </ScrollArea>
 
-      {/* Summary */}
-      {!loading && filteredReports.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing {filteredReports.length} of {reports.length} reports
-        </p>
+      {/* Pagination */}
+      {!loading && (
+        <DrilldownPagination
+          currentPage={currentPage}
+          totalItems={filteredReports.length}
+          onPageChange={setCurrentPage}
+        />
       )}
     </div>
   );

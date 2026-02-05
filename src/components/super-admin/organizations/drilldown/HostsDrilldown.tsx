@@ -2,8 +2,8 @@
  * Hosts Drilldown Component
  * Shows detailed Zabbix hosts list for the selected organization
  */
-import { useState, useMemo } from "react";
-import { Server, CheckCircle, XCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Server, XCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HostItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
+import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
 
 interface HostsDrilldownProps {
   orgName: string;
@@ -23,14 +24,39 @@ interface HostsDrilldownProps {
 
 type HostFilter = "all" | "enabled" | "disabled";
 
+/**
+ * Get host display name using fallback chain
+ * Primary: name, host, hostname
+ * Secondary: displayName, visible_name
+ * Fallback: Host #hostid
+ */
+const getHostName = (host: HostItem): string => {
+  if (host.name && host.name !== "Unknown Host") return host.name;
+  if (host.host && host.host !== "Unknown") return host.host;
+  return `Host #${host.hostid}`;
+};
+
+/**
+ * Get host technical identifier
+ */
+const getHostIdentifier = (host: HostItem): string => {
+  if (host.host && host.host !== "Unknown" && host.host !== host.name) return host.host;
+  return host.hostid;
+};
+
 const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDrilldownProps) => {
   const [filter, setFilter] = useState<HostFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery]);
 
   const filteredHosts = useMemo(() => {
     let result = hosts;
 
-    // Apply filter (status 0 = enabled, 1 = disabled in Zabbix)
     switch (filter) {
       case "enabled":
         result = result.filter(h => h.status === 0);
@@ -40,18 +66,23 @@ const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDril
         break;
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(h =>
-        h.name.toLowerCase().includes(query) ||
-        h.host.toLowerCase().includes(query) ||
+        getHostName(h).toLowerCase().includes(query) ||
+        getHostIdentifier(h).toLowerCase().includes(query) ||
         h.groups?.some(g => g.toLowerCase().includes(query))
       );
     }
 
-    return result.sort((a, b) => a.name.localeCompare(b.name));
+    return result.sort((a, b) => getHostName(a).localeCompare(getHostName(b)));
   }, [hosts, filter, searchQuery]);
+
+  // Paginated hosts
+  const paginatedHosts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredHosts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredHosts, currentPage]);
 
   const counts = useMemo(() => ({
     all: hosts.length,
@@ -134,7 +165,7 @@ const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDril
                 </div>
               </Card>
             ))
-          ) : filteredHosts.length === 0 ? (
+          ) : paginatedHosts.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <Server className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
@@ -142,7 +173,7 @@ const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDril
               </p>
             </Card>
           ) : (
-            filteredHosts.map((host) => (
+            paginatedHosts.map((host) => (
               <Card 
                 key={host.hostid} 
                 className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
@@ -163,9 +194,9 @@ const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDril
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{host.name}</p>
+                    <p className="font-medium truncate">{getHostName(host)}</p>
                     <p className="text-sm text-muted-foreground truncate">
-                      {host.host}
+                      {getHostIdentifier(host)}
                     </p>
                   </div>
                   
@@ -194,11 +225,13 @@ const HostsDrilldown = ({ orgName, hosts, loading, error, onRefresh }: HostsDril
         </div>
       </ScrollArea>
 
-      {/* Summary */}
-      {!loading && filteredHosts.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing {filteredHosts.length} of {hosts.length} hosts
-        </p>
+      {/* Pagination */}
+      {!loading && (
+        <DrilldownPagination
+          currentPage={currentPage}
+          totalItems={filteredHosts.length}
+          onPageChange={setCurrentPage}
+        />
       )}
     </div>
   );
