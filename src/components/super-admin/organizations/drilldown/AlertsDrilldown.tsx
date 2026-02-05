@@ -2,8 +2,8 @@
  * Alerts Drilldown Component
  * Shows detailed alerts list for the selected organization
  */
-import { useState, useMemo } from "react";
-import { AlertTriangle, CheckCircle, XCircle, Clock, Filter, RefreshCw } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { AlertTriangle, CheckCircle, XCircle, Clock, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
 import { format } from "date-fns";
+import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
 
 interface AlertsDrilldownProps {
   orgName: string;
@@ -34,14 +35,32 @@ const severityColors: Record<string, string> = {
   information: "bg-primary/20 text-primary border-primary/30",
 };
 
+/**
+ * Get alert display title using fallback chain
+ * Primary: title, name, problem, subject
+ * Secondary: message, description
+ * Fallback: Alert #id
+ */
+const getAlertTitle = (alert: AlertItem): string => {
+  if (alert.title && alert.title !== "Unknown Alert") return alert.title;
+  if (alert.message) return alert.message;
+  if (alert.eventid) return `Alert #${alert.eventid}`;
+  return `Alert #${alert.id}`;
+};
+
 const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsDrilldownProps) => {
   const [filter, setFilter] = useState<AlertFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery]);
 
   const filteredAlerts = useMemo(() => {
     let result = alerts;
 
-    // Apply filter
     switch (filter) {
       case "active":
         result = result.filter(a => a.status === "active" || !a.acknowledged);
@@ -56,11 +75,10 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
         break;
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(a =>
-        a.title.toLowerCase().includes(query) ||
+        getAlertTitle(a).toLowerCase().includes(query) ||
         a.host?.toLowerCase().includes(query) ||
         a.message?.toLowerCase().includes(query)
       );
@@ -68,6 +86,12 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
 
     return result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [alerts, filter, searchQuery]);
+
+  // Paginated alerts
+  const paginatedAlerts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAlerts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAlerts, currentPage]);
 
   const counts = useMemo(() => ({
     all: alerts.length,
@@ -152,7 +176,7 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
                 </div>
               </Card>
             ))
-          ) : filteredAlerts.length === 0 ? (
+          ) : paginatedAlerts.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <CheckCircle className="w-12 h-12 mx-auto text-success/50 mb-4" />
               <p className="text-muted-foreground">
@@ -160,7 +184,7 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
               </p>
             </Card>
           ) : (
-            filteredAlerts.map((alert) => (
+            paginatedAlerts.map((alert) => (
               <Card 
                 key={alert.id} 
                 className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
@@ -180,7 +204,7 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
                         </Badge>
                       )}
                     </div>
-                    <p className="font-medium truncate">{alert.title}</p>
+                    <p className="font-medium truncate">{getAlertTitle(alert)}</p>
                     {alert.host && (
                       <p className="text-sm text-muted-foreground truncate">
                         Host: {alert.host}
@@ -198,11 +222,13 @@ const AlertsDrilldown = ({ orgName, alerts, loading, error, onRefresh }: AlertsD
         </div>
       </ScrollArea>
 
-      {/* Summary */}
-      {!loading && filteredAlerts.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing {filteredAlerts.length} of {alerts.length} alerts
-        </p>
+      {/* Pagination */}
+      {!loading && (
+        <DrilldownPagination
+          currentPage={currentPage}
+          totalItems={filteredAlerts.length}
+          onPageChange={setCurrentPage}
+        />
       )}
     </div>
   );

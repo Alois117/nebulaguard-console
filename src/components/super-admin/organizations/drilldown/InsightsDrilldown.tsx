@@ -2,7 +2,7 @@
  * AI Insights Drilldown Component
  * Shows detailed insights list for the selected organization
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Brain, Lightbulb, AlertTriangle, TrendingUp, RefreshCw, XCircle, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InsightItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
 import { format } from "date-fns";
+import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
 
 interface InsightsDrilldownProps {
   orgName: string;
@@ -38,22 +39,41 @@ const typeColors: Record<string, string> = {
   insight: "border-secondary/30 bg-secondary/10 text-secondary",
 };
 
+/**
+ * Get insight display title using fallback chain
+ * Primary: title, name, summary (first 50 chars)
+ * Fallback: Insight #id
+ */
+const getInsightTitle = (insight: InsightItem): string => {
+  if (insight.title && insight.title !== "AI Insight") return insight.title;
+  if (insight.summary) return insight.summary.length > 60 ? insight.summary.slice(0, 60) + "..." : insight.summary;
+  return `Insight #${insight.id}`;
+};
+
+/**
+ * Get insight type category
+ */
+const getInsightType = (type: string): string => {
+  const lowerType = type.toLowerCase();
+  if (lowerType.includes("predict")) return "prediction";
+  if (lowerType.includes("anomal")) return "anomaly";
+  if (lowerType.includes("recommend")) return "recommendation";
+  return "insight";
+};
+
 const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: InsightsDrilldownProps) => {
   const [filter, setFilter] = useState<InsightFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const getInsightType = (type: string): string => {
-    const lowerType = type.toLowerCase();
-    if (lowerType.includes("predict")) return "prediction";
-    if (lowerType.includes("anomal")) return "anomaly";
-    if (lowerType.includes("recommend")) return "recommendation";
-    return "insight";
-  };
+  // Reset page on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery]);
 
   const filteredInsights = useMemo(() => {
     let result = insights;
 
-    // Apply filter
     if (filter !== "all") {
       result = result.filter(i => {
         const type = getInsightType(i.type);
@@ -64,11 +84,10 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
       });
     }
 
-    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(i =>
-        i.title.toLowerCase().includes(query) ||
+        getInsightTitle(i).toLowerCase().includes(query) ||
         i.summary.toLowerCase().includes(query) ||
         i.type.toLowerCase().includes(query)
       );
@@ -76,6 +95,12 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
 
     return result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }, [insights, filter, searchQuery]);
+
+  // Paginated insights
+  const paginatedInsights = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredInsights.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredInsights, currentPage]);
 
   const counts = useMemo(() => ({
     all: insights.length,
@@ -157,7 +182,7 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
                 </div>
               </Card>
             ))
-          ) : filteredInsights.length === 0 ? (
+          ) : paginatedInsights.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <Brain className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
@@ -165,7 +190,7 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
               </p>
             </Card>
           ) : (
-            filteredInsights.map((insight) => {
+            paginatedInsights.map((insight) => {
               const insightType = getInsightType(insight.type);
               const Icon = typeIcons[insightType] || Brain;
               
@@ -193,9 +218,9 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
                       </div>
                     </div>
                     
-                    <p className="font-medium">{insight.title}</p>
+                    <p className="font-medium">{getInsightTitle(insight)}</p>
                     
-                    {insight.summary && (
+                    {insight.summary && insight.title !== insight.summary && (
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {insight.summary}
                       </p>
@@ -208,11 +233,13 @@ const InsightsDrilldown = ({ orgName, insights, loading, error, onRefresh }: Ins
         </div>
       </ScrollArea>
 
-      {/* Summary */}
-      {!loading && filteredInsights.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing {filteredInsights.length} of {insights.length} insights
-        </p>
+      {/* Pagination */}
+      {!loading && (
+        <DrilldownPagination
+          currentPage={currentPage}
+          totalItems={filteredInsights.length}
+          onPageChange={setCurrentPage}
+        />
       )}
     </div>
   );
