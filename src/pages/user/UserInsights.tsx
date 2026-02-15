@@ -32,10 +32,14 @@ import {
 } from "@/hooks/useAiInsights";
 
 import InsightCard from "@/components/AI-Insights/InsightCard";
+import { isItemRead, markItemRead } from "@/utils/readState";
+import { useAuth } from "@/keycloak/context/AuthContext";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const UserInsights = () => {
+  const { decodedToken } = useAuth();
+  const userId = decodedToken?.sub || '';
   const {
     paginatedInsights,
     loading,
@@ -61,6 +65,23 @@ const UserInsights = () => {
   } = useAiInsights({ pageSize: 8 });
 
   const [expandedInsights, setExpandedInsights] = useState<Record<string, boolean>>({});
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+
+  // Sync read state from localStorage
+  useEffect(() => {
+    if (!userId || paginatedInsights.length === 0) return;
+    const set = new Set<string>();
+    paginatedInsights.forEach(i => {
+      if (isItemRead(userId, i.id)) set.add(i.id);
+    });
+    setReadIds(set);
+  }, [userId, paginatedInsights]);
+
+  const handleMarkRead = (id: string) => {
+    if (!userId) return;
+    markItemRead(userId, id);
+    setReadIds(prev => new Set(prev).add(id));
+  };
 
   const setExpanded = (id: string, open: boolean) => {
     setExpandedInsights((prev) => ({
@@ -133,7 +154,7 @@ const UserInsights = () => {
 
   return (
     <UserLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6 3xl:space-y-8">
         {/* Page Header */}
 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
   <div className="flex items-center gap-3">
@@ -342,6 +363,8 @@ const UserInsights = () => {
                 getSeverityBadge={getSeverityBadge}
                 getTypeIcon={getTypeIcon}
                 getTypeColor={getTypeColor}
+                isRead={readIds.has(insight.id)}
+                onMarkRead={() => handleMarkRead(insight.id)}
               />
             ))}
           </div>

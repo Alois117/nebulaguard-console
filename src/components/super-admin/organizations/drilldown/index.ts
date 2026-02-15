@@ -9,4 +9,3 @@ export { default as ReportsDrilldown } from "./ReportsDrilldown";
 export { default as InsightsDrilldown } from "./InsightsDrilldown";
 export { default as VeeamDrilldown } from "./VeeamDrilldown";
 export { default as UsersDrilldown } from "./UsersDrilldown";
-export { default as DrilldownPagination, ITEMS_PER_PAGE } from "./DrilldownPagination";

@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuthenticatedFetch } from "@/keycloak/hooks/useAuthenticatedFetch";
+import { WEBHOOK_JARVIS_ASSISTANT_URL } from "@/config/env";
+import { safeParseResponse } from "@/lib/safeFetch";
 
 interface JarvisResponse {
   confidence: string;
@@ -12,7 +14,7 @@ interface UseJarvisAssistantReturn {
   error: string | null;
 }
 
-const WEBHOOK_URL = "http://10.100.12.141:5678/webhook/Jarvis-AI-Assistant";
+const WEBHOOK_URL = WEBHOOK_JARVIS_ASSISTANT_URL;
 
 const useJarvisAssistant = (): UseJarvisAssistantReturn => {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,11 +34,12 @@ const useJarvisAssistant = (): UseJarvisAssistantReturn => {
         body: JSON.stringify({ message }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      const result = await safeParseResponse<any>(response, WEBHOOK_URL);
+      if (!result.ok) {
+        throw new Error(result.userMessage);
       }
 
-      const data = await response.json();
+      const data = result.data;
 
       // Parse the nested response field which contains JSON string
       if (data?.response) {
@@ -61,8 +64,9 @@ const useJarvisAssistant = (): UseJarvisAssistantReturn => {
         message: "I received your message but couldn't generate a response.",
       };
     } catch (err) {
-      console.error("Jarvis Assistant error:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const safe = err instanceof Error ? err.message : "Jarvis is temporarily unavailable. Please try again.";
+      console.error("[useJarvisAssistant] Error:", err);
+      setError(safe);
       return null;
     } finally {
       setIsLoading(false);

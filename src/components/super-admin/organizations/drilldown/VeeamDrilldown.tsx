@@ -2,7 +2,7 @@
  * Veeam Jobs Drilldown Component
  * Shows detailed Veeam backup jobs for the selected organization
  */
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { HardDrive, CheckCircle, XCircle, RefreshCw, Clock, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VeeamJobItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
 import { format } from "date-fns";
-import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
 
 interface VeeamDrilldownProps {
   orgName: string;
@@ -21,28 +20,16 @@ interface VeeamDrilldownProps {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  onItemClick?: (item: VeeamJobItem) => void;
 }
 
 type VeeamFilter = "all" | "success" | "failed" | "warning";
 
-/**
- * Get job display name using fallback chain
- * Primary: name, jobName, title
- * Fallback: Job #id
- */
-const getJobName = (job: VeeamJobItem): string => {
-  if (job.name && job.name !== "Unnamed Job") return job.name;
-  return `Job #${job.id}`;
-};
-
-/**
- * Get job status from severity/status fields
- */
-const getJobStatus = (job: VeeamJobItem): string => {
-  const status = (job.status || job.severity || "").toLowerCase();
-  if (status === "success" || status === "completed") return "success";
-  if (status === "failed" || status === "error") return "failed";
-  if (status === "warning") return "warning";
+const getJobStatus = (severity: string): string => {
+  const lower = severity.toLowerCase();
+  if (lower === "success" || lower === "completed") return "success";
+  if (lower === "failed" || lower === "error") return "failed";
+  if (lower === "warning") return "warning";
   return "unknown";
 };
 
@@ -60,27 +47,23 @@ const statusIcons: Record<string, React.ElementType> = {
   unknown: Clock,
 };
 
-const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrilldownProps) => {
+const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh, onItemClick }: VeeamDrilldownProps) => {
   const [filter, setFilter] = useState<VeeamFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reset page on filter/search change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, searchQuery]);
 
   const filteredJobs = useMemo(() => {
     let result = jobs;
 
+    // Apply filter
     if (filter !== "all") {
-      result = result.filter(j => getJobStatus(j) === filter);
+      result = result.filter(j => getJobStatus(j.severity) === filter);
     }
 
+    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(j =>
-        getJobName(j).toLowerCase().includes(query) ||
+        j.name.toLowerCase().includes(query) ||
         j.type?.toLowerCase().includes(query)
       );
     }
@@ -93,17 +76,11 @@ const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrill
     });
   }, [jobs, filter, searchQuery]);
 
-  // Paginated jobs
-  const paginatedJobs = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredJobs.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredJobs, currentPage]);
-
   const counts = useMemo(() => ({
     all: jobs.length,
-    success: jobs.filter(j => getJobStatus(j) === "success").length,
-    failed: jobs.filter(j => getJobStatus(j) === "failed").length,
-    warning: jobs.filter(j => getJobStatus(j) === "warning").length,
+    success: jobs.filter(j => getJobStatus(j.severity) === "success").length,
+    failed: jobs.filter(j => getJobStatus(j.severity) === "failed").length,
+    warning: jobs.filter(j => getJobStatus(j.severity) === "warning").length,
   }), [jobs]);
 
   if (error) {
@@ -184,7 +161,7 @@ const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrill
                 </div>
               </Card>
             ))
-          ) : paginatedJobs.length === 0 ? (
+          ) : filteredJobs.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <HardDrive className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
@@ -192,14 +169,19 @@ const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrill
               </p>
             </Card>
           ) : (
-            paginatedJobs.map((job) => {
-              const status = getJobStatus(job);
+            filteredJobs.map((job) => {
+              const status = getJobStatus(job.severity);
               const StatusIcon = statusIcons[status] || Clock;
               
               return (
                 <Card 
                   key={job.id} 
                   className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
+                  onClick={() => onItemClick?.(job)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && onItemClick?.(job)}
+                  aria-label={`View details for job: ${job.name}`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`p-2.5 rounded-lg ${statusColors[status]}`}>
@@ -207,7 +189,7 @@ const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrill
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{getJobName(job)}</p>
+                      <p className="font-medium truncate">{job.name}</p>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         {job.type && <span>{job.type}</span>}
                         {job.lastRun && (
@@ -233,13 +215,11 @@ const VeeamDrilldown = ({ orgName, jobs, loading, error, onRefresh }: VeeamDrill
         </div>
       </ScrollArea>
 
-      {/* Pagination */}
-      {!loading && (
-        <DrilldownPagination
-          currentPage={currentPage}
-          totalItems={filteredJobs.length}
-          onPageChange={setCurrentPage}
-        />
+      {/* Summary */}
+      {!loading && filteredJobs.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Showing {filteredJobs.length} of {jobs.length} jobs
+        </p>
       )}
     </div>
   );

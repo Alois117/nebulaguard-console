@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuthenticatedFetch } from "@/keycloak/hooks/useAuthenticatedFetch";
+import { safeParseResponse } from "@/lib/safeFetch";
 
 export interface VeeamAlarm {
   client_id: number;
@@ -71,7 +72,9 @@ interface UseVeeamAlarmsReturn {
   entityTypes: string[];
 }
 
-const VEEAM_ALARMS_ENDPOINT = "http://localhost:5678/webhook/alarms";
+import { WEBHOOK_VEEAM_ALARMS_URL } from "@/config/env";
+
+const VEEAM_ALARMS_ENDPOINT = WEBHOOK_VEEAM_ALARMS_URL;
 const REFRESH_INTERVAL = 5000;
 
 export const useVeeamAlarms = (options: UseVeeamAlarmsOptions = {}): UseVeeamAlarmsReturn => {
@@ -120,13 +123,21 @@ export const useVeeamAlarms = (options: UseVeeamAlarmsOptions = {}): UseVeeamAla
         headers: { Accept: "application/json" },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
+      const result = await safeParseResponse<any[]>(response, VEEAM_ALARMS_ENDPOINT);
+      if (!result.ok) {
+        throw new Error(result.userMessage);
       }
 
-      const data = await response.json();
+      if (!result.data || !Array.isArray(result.data)) {
+        setAlarms([]);
+        setIsConnected(true);
+        setLastUpdated(new Date());
+        setError(null);
+        if (!silent) setLoading(false);
+        return;
+      }
 
-      const alarmsArray = data
+      const alarmsArray = result.data
         .map((item: any) => {
           if (typeof item !== "object" || item === null) return null;
           const outerKey = Object.keys(item)[0];
@@ -192,8 +203,9 @@ export const useVeeamAlarms = (options: UseVeeamAlarmsOptions = {}): UseVeeamAla
       // Optional: log for debugging
       // console.log(`Fetched: ${alarmsArray.length} alarms → Unique: ${uniqueAlarms.length}`);
     } catch (err) {
-      console.error("Failed to fetch Veeam alarms:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch alarms");
+      const safe = err instanceof Error ? err.message : "We couldn't load Veeam alarms. Please try again.";
+      console.error("[useVeeamAlarms] Fetch error:", err);
+      if (!silent) setError(safe);
       setIsConnected(false);
     } finally {
       if (!silent) setLoading(false);

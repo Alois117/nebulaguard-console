@@ -2,8 +2,8 @@
  * Users Drilldown Component
  * Shows detailed users list for the selected organization
  */
-import { useState, useMemo, useEffect } from "react";
-import { Users, User, XCircle, RefreshCw, Mail, Shield } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Users, User, CheckCircle, XCircle, RefreshCw, Mail, Shield } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
-import DrilldownPagination, { ITEMS_PER_PAGE } from "./DrilldownPagination";
+import { format } from "date-fns";
 
 interface UsersDrilldownProps {
   orgName: string;
@@ -20,6 +20,7 @@ interface UsersDrilldownProps {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  onItemClick?: (item: UserItem) => void;
 }
 
 type UserFilter = "all" | "active" | "inactive";
@@ -30,42 +31,14 @@ const roleColors: Record<string, string> = {
   viewer: "border-muted/30 bg-muted/10 text-muted-foreground",
 };
 
-/**
- * Get user display name using fallback chain
- * Primary: name, fullName, firstName + lastName
- * Secondary: email username part
- * Fallback: User #id
- */
-const getUserName = (user: UserItem): string => {
-  if (user.name && user.name !== "Unknown User") return user.name;
-  if (user.email) {
-    const emailName = user.email.split("@")[0];
-    // Capitalize first letter
-    return emailName.charAt(0).toUpperCase() + emailName.slice(1);
-  }
-  return `User #${user.id}`;
-};
-
-/**
- * Get user identifier (email or username)
- */
-const getUserIdentifier = (user: UserItem): string => {
-  return user.email || `ID: ${user.id}`;
-};
-
-const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDrilldownProps) => {
+const UsersDrilldown = ({ orgName, users, loading, error, onRefresh, onItemClick }: UsersDrilldownProps) => {
   const [filter, setFilter] = useState<UserFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reset page on filter/search change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, searchQuery]);
 
   const filteredUsers = useMemo(() => {
     let result = users;
 
+    // Apply filter
     switch (filter) {
       case "active":
         result = result.filter(u => u.status === "active");
@@ -75,23 +48,18 @@ const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDril
         break;
     }
 
+    // Apply search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(u =>
-        getUserName(u).toLowerCase().includes(query) ||
-        getUserIdentifier(u).toLowerCase().includes(query) ||
+        u.name.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query) ||
         u.role.toLowerCase().includes(query)
       );
     }
 
-    return result.sort((a, b) => getUserName(a).localeCompare(getUserName(b)));
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [users, filter, searchQuery]);
-
-  // Paginated users
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredUsers, currentPage]);
 
   const counts = useMemo(() => ({
     all: users.length,
@@ -174,7 +142,7 @@ const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDril
                 </div>
               </Card>
             ))
-          ) : paginatedUsers.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <Card className="p-8 border-border/50 text-center">
               <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
@@ -182,10 +150,15 @@ const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDril
               </p>
             </Card>
           ) : (
-            paginatedUsers.map((user) => (
+            filteredUsers.map((user) => (
               <Card 
                 key={user.id} 
                 className="p-4 border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
+                onClick={() => onItemClick?.(user)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && onItemClick?.(user)}
+                aria-label={`View details for user: ${user.name}`}
               >
                 <div className="flex items-center gap-4">
                   <div className={`
@@ -201,10 +174,10 @@ const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDril
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{getUserName(user)}</p>
+                    <p className="font-medium truncate">{user.name}</p>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Mail className="w-3 h-3" />
-                      <span className="truncate">{getUserIdentifier(user)}</span>
+                      <span className="truncate">{user.email}</span>
                     </div>
                   </div>
                   
@@ -234,13 +207,11 @@ const UsersDrilldown = ({ orgName, users, loading, error, onRefresh }: UsersDril
         </div>
       </ScrollArea>
 
-      {/* Pagination */}
-      {!loading && (
-        <DrilldownPagination
-          currentPage={currentPage}
-          totalItems={filteredUsers.length}
-          onPageChange={setCurrentPage}
-        />
+      {/* Summary */}
+      {!loading && filteredUsers.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Showing {filteredUsers.length} of {users.length} users
+        </p>
       )}
     </div>
   );

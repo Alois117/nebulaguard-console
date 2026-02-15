@@ -1,4 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { WEBHOOK_HOST_DETAILS_URL } from "@/config/env";
+import { safeParseResponse } from "@/lib/safeFetch";
 
 export interface Host {
   hostid: string;
@@ -31,7 +33,7 @@ const initialState: HostsState = {
   lastUpdated: null,
 };
 
-const WEBHOOK_URL = "http://10.100.12.141:5678/webhook/zabbix/host-details";
+const WEBHOOK_URL = WEBHOOK_HOST_DETAILS_URL;
 
 // 🔁 Normalize API host to UI-safe host
 const transformHost = (raw: any): Host => {
@@ -60,13 +62,13 @@ export const fetchHosts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await fetch(WEBHOOK_URL);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch hosts: ${response.status}`);
+      const result = await safeParseResponse<any>(response, WEBHOOK_URL);
+
+      if (!result.ok) {
+        return rejectWithValue(result.userMessage);
       }
 
-      const rawData = await response.json();
-
-      // ✅ Extract hosts correctly
+      const rawData = result.data;
       const hostsArray =
         Array.isArray(rawData) && rawData[0]?.hosts
           ? rawData[0].hosts
@@ -75,7 +77,7 @@ export const fetchHosts = createAsyncThunk(
       return hostsArray.map(transformHost);
     } catch (err) {
       return rejectWithValue(
-        err instanceof Error ? err.message : "Failed to fetch hosts"
+        "We couldn't load hosts. Please try again."
       );
     }
   }
@@ -87,12 +89,13 @@ export const fetchHostsSilent = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await fetch(WEBHOOK_URL);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch hosts: ${response.status}`);
+      const result = await safeParseResponse<any>(response, WEBHOOK_URL);
+
+      if (!result.ok) {
+        return rejectWithValue(result.userMessage);
       }
 
-      const rawData = await response.json();
-
+      const rawData = result.data;
       const hostsArray =
         Array.isArray(rawData) && rawData[0]?.hosts
           ? rawData[0].hosts
@@ -101,7 +104,7 @@ export const fetchHostsSilent = createAsyncThunk(
       return hostsArray.map(transformHost);
     } catch (err) {
       return rejectWithValue(
-        err instanceof Error ? err.message : "Failed to fetch hosts"
+        "We couldn't load hosts. Please try again."
       );
     }
   }

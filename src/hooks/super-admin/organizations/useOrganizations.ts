@@ -13,9 +13,11 @@ import {
   OrganizationSortField,
   SortDirection 
 } from "./types";
+import { WEBHOOK_ORGANIZATIONS_URL } from "@/config/env";
+import { safeParseResponse } from "@/lib/safeFetch";
 
 // Using the same webhook pattern as other hooks
-const ORGANIZATIONS_ENDPOINT = "http://localhost:5678/webhook/organizations";
+const ORGANIZATIONS_ENDPOINT = WEBHOOK_ORGANIZATIONS_URL;
 const REFRESH_INTERVAL = 30000; // 30 seconds - less aggressive than alerts
 
 export interface UseOrganizationsReturn {
@@ -137,12 +139,12 @@ export const useOrganizations = (pageSize = 10): UseOrganizationsReturn => {
         body: JSON.stringify({}),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await safeParseResponse<OrganizationRaw[]>(response, ORGANIZATIONS_ENDPOINT);
+      if (!result.ok) {
+        throw new Error(result.userMessage);
       }
 
-      const data = await response.json();
-      const rawOrgs: OrganizationRaw[] = Array.isArray(data) ? data : [];
+      const rawOrgs: OrganizationRaw[] = Array.isArray(result.data) ? result.data : [];
 
       // Transform and deduplicate
       const transformed = rawOrgs
@@ -166,8 +168,9 @@ export const useOrganizations = (pageSize = 10): UseOrganizationsReturn => {
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
-      console.error("Failed to fetch organizations");
-      setError(err instanceof Error ? err.message : "Failed to fetch organizations");
+      const safe = err instanceof Error ? err.message : "We couldn't load organizations. Please try again.";
+      console.error("[useOrganizations] Fetch error:", err);
+      if (!silent) setError(safe);
       setIsConnected(false);
     } finally {
       if (!silent) setLoading(false);
