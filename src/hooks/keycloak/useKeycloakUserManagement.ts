@@ -114,7 +114,7 @@ export const useKeycloakUserManagement = () => {
     [authenticatedFetch]
   );
 
-  // ✅ NEW: assign realm role (e.g., "user")
+  // ✅ Assign realm role (e.g., "user", "org_admin")
   const assignRealmRole = useCallback(
     async (userId: string, roleName: string): Promise<MutationResult> => {
       try {
@@ -137,10 +137,42 @@ export const useKeycloakUserManagement = () => {
     [authenticatedFetch]
   );
 
+  // ✅ Send invitation email via Keycloak execute-actions-email
+  const sendRequiredActionsEmail = useCallback(
+    async (
+      userId: string,
+      options?: { actions?: string[]; lifespan?: number; redirectUri?: string; clientId?: string }
+    ): Promise<MutationResult> => {
+      try {
+        const response = await authenticatedFetch(`${BASE}/users/${userId}/execute-actions-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            actions: options?.actions || ["VERIFY_EMAIL", "UPDATE_PASSWORD"],
+            lifespan: options?.lifespan || 86400,
+            redirectUri: options?.redirectUri,
+            clientId: options?.clientId,
+          }),
+        });
+
+        const result = await safeParseJson(response);
+        if (!response.ok) {
+          return { success: false, error: result?.error || "Failed to send invitation email" };
+        }
+
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+      }
+    },
+    [authenticatedFetch]
+  );
+
   return {
     createUser,
     updateUser,
     toggleUserEnabled,
-    assignRealmRole, 
+    assignRealmRole,
+    sendRequiredActionsEmail,
   };
 };

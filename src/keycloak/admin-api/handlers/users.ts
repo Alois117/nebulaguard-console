@@ -22,10 +22,13 @@ export async function handleUsers(req: Request): Promise<Response> {
   // ✅ Match /users/:id/roles/realm
   const realmRoleMatch = path.match(/^\/users\/([^/]+)\/roles\/realm\/?$/);
 
+  // ✅ Match /users/:id/execute-actions-email
+  const actionsEmailMatch = path.match(/^\/users\/([^/]+)\/execute-actions-email\/?$/);
+
   // Match /users/:id
   const idMatch = path.match(/^\/users\/([^/]+)\/?$/);
 
-  const userId = toggleMatch?.[1] || realmRoleMatch?.[1] || idMatch?.[1];
+  const userId = toggleMatch?.[1] || realmRoleMatch?.[1] || actionsEmailMatch?.[1] || idMatch?.[1];
 
   switch (req.method) {
     // ── GET /users/:id ──────────────────────────────────────────────
@@ -81,6 +84,40 @@ export async function handleUsers(req: Request): Promise<Response> {
         const err = await mapRes.text();
         console.error("[users] Role assign failed:", err);
         return json({ error: "Failed to assign role", detail: err }, mapRes.status);
+      }
+
+      // ✅ PUT-style via POST: /users/:id/execute-actions-email
+      if (actionsEmailMatch && userId) {
+        let body: any;
+        try {
+          body = await req.json();
+        } catch {
+          body = {};
+        }
+
+        const actions = Array.isArray(body?.actions) ? body.actions : ["VERIFY_EMAIL", "UPDATE_PASSWORD"];
+        const lifespan = typeof body?.lifespan === "number" ? body.lifespan : 86400; // 24h default
+
+        const qs = new URLSearchParams();
+        qs.set("lifespan", String(lifespan));
+        if (body?.redirectUri) qs.set("redirect_uri", body.redirectUri);
+        if (body?.clientId) qs.set("client_id", body.clientId);
+
+        const response = await keycloakAdminFetch(
+          `/users/${userId}/execute-actions-email?${qs.toString()}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(actions),
+          }
+        );
+
+        if (response.status === 204 || response.ok) {
+          return json({ success: true });
+        }
+
+        const err = await response.text();
+        console.error("[users] execute-actions-email failed:", err);
+        return json({ error: "Failed to send actions email", detail: err }, response.status);
       }
 
       // ── POST /users (create user) ──
