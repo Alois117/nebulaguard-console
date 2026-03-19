@@ -134,7 +134,7 @@ export const useVeeamBackupAndReplication = (): UseVeeamBackupReturn => {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Store job order and data separately
   const jobOrderRef = useRef<string[]>([]); // Array of job IDs in display order

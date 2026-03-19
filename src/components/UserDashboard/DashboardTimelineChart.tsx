@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Line } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface TimelineData {
   time: string;
@@ -13,10 +14,27 @@ interface TimelineData {
 interface DashboardTimelineChartProps {
   data: TimelineData[];
   loading?: boolean;
+  basePath?: string;
+  enableNavigation?: boolean;
+  onOpen?: () => void;
 }
 
-const DashboardTimelineChart = ({ data, loading }: DashboardTimelineChartProps) => {
+const DashboardTimelineChart = ({
+  data,
+  loading,
+  basePath = "/dashboard",
+  enableNavigation = true,
+  onOpen,
+}: DashboardTimelineChartProps) => {
   const navigate = useNavigate();
+
+  const handleOpen = () => {
+    if (onOpen) {
+      onOpen();
+      return;
+    }
+    navigate(`${basePath}/zabbix`);
+  };
 
   if (loading) {
     return (
@@ -30,21 +48,26 @@ const DashboardTimelineChart = ({ data, loading }: DashboardTimelineChartProps) 
     );
   }
 
-  const hasData = data.some(d => d.total > 0);
+  const hasData = data.some((d) => d.total > 0);
 
   return (
-    <Card 
-      className="cyber-card p-6 bg-card/50 backdrop-blur border-border/50 hover:border-primary/30 transition-all cursor-pointer group"
-      onClick={() => navigate("/dashboard/zabbix")}
+    <Card
+      className={cn(
+        "cyber-card p-6 bg-card/50 backdrop-blur border-border/50 transition-all",
+        enableNavigation && "hover:border-primary/30 cursor-pointer group"
+      )}
+      onClick={enableNavigation ? handleOpen : undefined}
     >
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold mb-1">Alerts Timeline</h3>
           <p className="text-sm text-muted-foreground">Alert activity over last 24 hours</p>
         </div>
-        <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          Click to view details →
-        </span>
+        {enableNavigation && (
+          <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+            Click to view details -&gt;
+          </span>
+        )}
       </div>
 
       {hasData ? (
@@ -62,12 +85,12 @@ const DashboardTimelineChart = ({ data, loading }: DashboardTimelineChartProps) 
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-              <XAxis 
-                dataKey="time" 
+              <XAxis
+                dataKey="time"
                 stroke="hsl(var(--muted-foreground))"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
               />
-              <YAxis 
+              <YAxis
                 stroke="hsl(var(--muted-foreground))"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
               />

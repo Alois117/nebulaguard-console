@@ -6,6 +6,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuthenticatedFetch } from "@/keycloak/hooks/useAuthenticatedFetch";
 import { useKeycloakMembers, type KeycloakMember } from "@/hooks/keycloak";
+import { normalizeReportTemplateHtml } from "@/hooks/super-admin/shared-ui/reportTemplate";
+import { extractAlertHost } from "@/lib/alertPresentation";
 import {
   WEBHOOK_ALERTS_URL,
   WEBHOOK_ZABBIX_HOSTS_URL,
@@ -41,6 +43,15 @@ export interface AlertItem {
   host?: string;
   timestamp: Date;
   acknowledged?: boolean;
+  client_id?: number;
+  organizationId?: string | null;
+  clientId?: number | null;
+  times_sent?: number;
+  seen_count?: number;
+  first_seen?: string;
+  last_seen_at?: string;
+  dedupe_key?: string;
+  rawMetadata?: Record<string, unknown>;
 }
 export interface HostItem {
   hostid: string;
@@ -50,6 +61,14 @@ export interface HostItem {
   available?: number;
   groups?: string[];
   lastAccess?: Date;
+  client_id?: number;
+  organizationId?: string | null;
+  clientId?: number | null;
+  created_at?: Date;
+  updated_at?: Date;
+  last_collected_at?: Date | null;
+  linked_veeam_moref?: string | null;
+  tags_json?: Record<string, unknown>;
 }
 
 export interface ReportItem {
@@ -133,20 +152,6 @@ const normalizeSeverity = (value: any): string => {
   const s = String(value ?? "").trim();
   if (!s) return "info";
   return s.toLowerCase();
-};
-
-const extractHostFromAiText = (text?: string): string | undefined => {
-  if (!text) return undefined;
-
-  // Matches: **Host:** MXO_VMASTER
-  const m = text.match(/\*\*Host:\*\*\s*([^\n\r]+)/i);
-  if (m?.[1]) return m[1].trim();
-
-  // Fallback: "Host:" MXO_VMASTER
-  const m2 = text.match(/Host:\s*([^\n\r]+)/i);
-  if (m2?.[1]) return m2[1].trim();
-
-  return undefined;
 };
 
 const safeDate = (value: any): Date => {
@@ -247,6 +252,14 @@ const pickInsightTimestamp = (i: any): Date => {
   );
 };
 
+const hashString = (value: string): number => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
+};
+
 // Helper: compare client ids safely (string/number)
 const matchesClientId = (payloadClientId: any, clientId: number | null) => {
   if (clientId == null) return true; // if no clientId, treat as unscoped
@@ -322,7 +335,7 @@ export const useOrganizationDetails = (
         matchesClientId(a?.client_id ?? a?.clientId, clientId)
       );
 
-      const items: AlertItem[] = orgAlerts.map((a: any) => {
+      const items: AlertItem[] = orgAlerts.map((a: any, idx: number) => {
         const zbx = a?.zbx_raw ?? {};
         const rawEvent = zbx?.raw_event ?? {};
 
@@ -334,12 +347,14 @@ export const useOrganizationDetails = (
               a?.id ??
               a?.ai_response_id ??
               ""
-          ).trim() ||
-          `alert_${clientId}_${Math.random().toString(16).slice(2)}`;
+          ).trim();
 
-        const hostFromAi =
-          extractHostFromAiText(a?.first_ai_response) ||
-          extractHostFromAiText(a?.response_content);
+        const message = (
+          a?.first_ai_response ??
+          a?.response_content ??
+          a?.zbx_raw?.description ??
+          ""
+        ).toString();
 
         const title =
           String(
@@ -363,22 +378,55 @@ export const useOrganizationDetails = (
           : safeDate(
               a?.created_at ?? a?.first_seen ?? a?.last_seen_at ?? a?.updated_at
             );
+        const dedupeKey =
+          safeString(a?.dedupe_key) ||
+          safeString(zbx?.dedupe_key) ||
+          "";
+        const normalizedHost = extractAlertHost({
+          directHost:
+            safeString(a?.host) ||
+            safeString(rawEvent?.host) ||
+            safeString(zbx?.host),
+          content: message,
+          dedupeKey,
+        });
+        const host =
+          normalizedHost && normalizedHost !== "unknown-host"
+            ? normalizedHost
+            : undefined;
+        const stableFallbackId =
+          eventId ||
+          `alert_${clientId}_${hashString(
+            `${dedupeKey}|${title}|${host ?? ""}|${ts.toISOString()}|${idx}`
+          )}`;
 
         return {
-          id: eventId,
+          id: stableFallbackId,
           eventid: String(zbx?.eventid ?? rawEvent?.eventid ?? a?.eventid ?? ""),
           title,
-          message: (
-            a?.first_ai_response ??
-            a?.response_content ??
-            a?.zbx_raw?.description ??
-            ""
-          ).toString(),
+          message,
           severity,
           status: a?.acknowledged ? "acknowledged" : a?.status ?? "active",
-          host: hostFromAi,
+          host,
           timestamp: ts,
           acknowledged: Boolean(a?.acknowledged),
+          client_id: getClientIdFromAny(a) ?? clientId ?? undefined,
+          clientId: getClientIdFromAny(a) ?? clientId ?? null,
+          organizationId: orgId,
+          times_sent: toNumberOrNull(a?.times_sent) ?? undefined,
+          seen_count: toNumberOrNull(a?.seen_count) ?? undefined,
+          first_seen: safeString(a?.first_seen) || undefined,
+          last_seen_at:
+            safeString(a?.last_seen_at) ||
+            safeString(a?.updated_at) ||
+            ts.toISOString(),
+          dedupe_key: dedupeKey || undefined,
+          rawMetadata: {
+            ...zbx,
+            ...rawEvent,
+            eventid: String(zbx?.eventid ?? rawEvent?.eventid ?? a?.eventid ?? ""),
+            severity: String(zbx?.severity ?? rawEvent?.severity ?? a?.severity ?? ""),
+          },
         };
       });
 
@@ -452,6 +500,16 @@ export const useOrganizationDetails = (
           available: h.available,
           groups,
           lastAccess: h.last_access ? new Date(h.last_access) : undefined,
+          client_id: getClientIdFromAny(h) ?? clientId ?? undefined,
+          clientId: getClientIdFromAny(h) ?? clientId ?? null,
+          organizationId: orgId,
+          created_at: h.created_at ? new Date(h.created_at) : undefined,
+          updated_at: h.updated_at ? new Date(h.updated_at) : undefined,
+          last_collected_at: h.last_collected_at ? new Date(h.last_collected_at) : null,
+          linked_veeam_moref:
+            safeString(h.linked_veeam_moref) || null,
+          tags_json:
+            h.tags_json && typeof h.tags_json === "object" ? h.tags_json : {},
         };
       });
 
@@ -493,42 +551,26 @@ export const useOrganizationDetails = (
         (r: any) => r?.client_id != null || r?.clientId != null
       );
 
-      const orgReports = hasAnyClientId
-        ? rawReports.filter((r: any) =>
-            matchesClientId(r?.client_id ?? r?.clientId, clientId)
-          )
-        : rawReports;
+        const orgReports = hasAnyClientId
+          ? rawReports.filter((r: any) =>
+              matchesClientId(r?.client_id ?? r?.clientId, clientId)
+            )
+          : rawReports;
 
-      const items: ReportItem[] = orgReports.map((r: any, idx: number) => {
-        const htmlTitle = extractHtmlTitle(r.report_template);
-        const fallbackName =
-          safeString(r.name).trim() ||
-          safeString(r.title).trim() ||
-          htmlTitle ||
-          "Report";
+        const items: ReportItem[] = orgReports.map((r: any, idx: number) => {
+          const template = normalizeReportTemplateHtml(r);
+          const htmlTitle = extractHtmlTitle(template);
+          const fallbackName =
+            safeString(r.name).trim() ||
+            safeString(r.title).trim() ||
+            htmlTitle ||
+            "Report";
 
-        const createdAt = r.created_at ? new Date(r.created_at) : new Date();
+          const createdAt = r.created_at ? new Date(r.created_at) : new Date();
 
-        // Normalize report_template HTML
-        let template = safeString(r.report_template).trim();
-        if (template) {
-          try {
-            const parsed = JSON.parse(template);
-            if (typeof parsed === "string") template = parsed;
-          } catch {
-            /* not JSON-encoded, use as-is */
-          }
-          template = template
-            .replace(/\\n/g, "\n")
-            .replace(/\\r/g, "\r")
-            .replace(/\\t/g, "\t")
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, "\\");
-        }
-
-        return {
-          id:
-            safeString(r.id).trim() ||
+          return {
+            id:
+              safeString(r.id).trim() ||
             safeString(r.report_id).trim() ||
             `${clientId}-${safeString(r.report_type) || "report"}-${createdAt.getTime()}-${idx}`,
           name: fallbackName,

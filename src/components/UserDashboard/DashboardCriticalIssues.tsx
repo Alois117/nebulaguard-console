@@ -9,20 +9,45 @@ import { cn } from "@/lib/utils";
 interface DashboardCriticalIssuesProps {
   issues: CriticalIssue[];
   loading?: boolean;
+  basePath?: string;
+  enableNavigation?: boolean;
+  onIssueClick?: (issue: CriticalIssue) => void;
+  onViewAllClick?: () => void;
 }
 
-const DashboardCriticalIssues = ({ issues, loading }: DashboardCriticalIssuesProps) => {
+const DashboardCriticalIssues = ({
+  issues,
+  loading,
+  basePath = "/dashboard",
+  enableNavigation = true,
+  onIssueClick,
+  onViewAllClick,
+}: DashboardCriticalIssuesProps) => {
   const navigate = useNavigate();
 
-  const handleIssueClick = (issue: CriticalIssue) => {
+  const handleIssueSelect = (issue: CriticalIssue) => {
+    if (!enableNavigation) return;
+    if (onIssueClick) {
+      onIssueClick(issue);
+      return;
+    }
     if (issue.source === "zabbix") {
-      navigate(`/dashboard/zabbix?id=${issue.id}`);
+      navigate(`${basePath}/zabbix?id=${issue.id}`);
     } else {
-      navigate(`/dashboard/veeam?alarm=${issue.id}`);
+      navigate(`${basePath}/veeam?alarm=${issue.id}`);
     }
   };
 
-  const unacknowledgedCount = issues.filter(i => !i.acknowledged).length;
+  const handleViewAll = () => {
+    if (!enableNavigation) return;
+    if (onViewAllClick) {
+      onViewAllClick();
+      return;
+    }
+    navigate(`${basePath}/zabbix`);
+  };
+
+  const unacknowledgedCount = issues.filter((i) => !i.acknowledged).length;
 
   if (loading) {
     return (
@@ -53,20 +78,19 @@ const DashboardCriticalIssues = ({ issues, loading }: DashboardCriticalIssuesPro
           <div>
             <h3 className="text-xl font-bold">Critical Issues</h3>
             <p className="text-sm text-muted-foreground">
-              {unacknowledgedCount > 0 
-                ? `${unacknowledgedCount} unacknowledged`
-                : "All issues acknowledged"
-              }
+              {unacknowledgedCount > 0 ? `${unacknowledgedCount} unacknowledged` : "All issues acknowledged"}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => navigate("/dashboard/zabbix")}
-          className="text-sm text-primary hover:underline flex items-center gap-1"
-        >
-          View All
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        {enableNavigation && (
+          <button
+            onClick={handleViewAll}
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+          >
+            View All
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {issues.length > 0 ? (
@@ -75,12 +99,14 @@ const DashboardCriticalIssues = ({ issues, loading }: DashboardCriticalIssuesPro
             <div
               key={`${issue.source}-${issue.id}`}
               className={cn(
-                "p-4 rounded-lg border transition-all cursor-pointer group",
+                "p-4 rounded-lg border transition-all group",
+                enableNavigation && "cursor-pointer",
                 issue.acknowledged
                   ? "bg-surface/30 border-border/30 opacity-70"
-                  : "bg-surface/50 border-border/50 hover:border-primary/50"
+                  : "bg-surface/50 border-border/50",
+                enableNavigation && !issue.acknowledged && "hover:border-primary/50"
               )}
-              onClick={() => handleIssueClick(issue)}
+              onClick={enableNavigation ? () => handleIssueSelect(issue) : undefined}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -92,18 +118,13 @@ const DashboardCriticalIssues = ({ issues, loading }: DashboardCriticalIssuesPro
                         Acknowledged
                       </span>
                     )}
-                    {/* Source indicator */}
-                    <span className={cn(
-                      "text-xs px-2 py-0.5 rounded-full flex items-center gap-1",
-                      issue.source === "zabbix" 
-                        ? "bg-primary/20 text-primary"
-                        : "bg-blue-500/20 text-blue-500"
-                    )}>
-                      {issue.source === "zabbix" ? (
-                        <Server className="w-3 h-3" />
-                      ) : (
-                        <Shield className="w-3 h-3" />
+                    <span
+                      className={cn(
+                        "text-xs px-2 py-0.5 rounded-full flex items-center gap-1",
+                        issue.source === "zabbix" ? "bg-primary/20 text-primary" : "bg-blue-500/20 text-blue-500"
                       )}
+                    >
+                      {issue.source === "zabbix" ? <Server className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
                       {issue.source === "zabbix" ? "Zabbix" : "Veeam"}
                     </span>
                   </div>
@@ -112,7 +133,12 @@ const DashboardCriticalIssues = ({ issues, loading }: DashboardCriticalIssuesPro
                     Host: <span className="font-mono truncate">{issue.host}</span>
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0 mt-1" />
+                <ArrowRight
+                  className={cn(
+                    "w-4 h-4 text-muted-foreground transition-all flex-shrink-0 mt-1",
+                    enableNavigation && "group-hover:text-primary group-hover:translate-x-1"
+                  )}
+                />
               </div>
             </div>
           ))}

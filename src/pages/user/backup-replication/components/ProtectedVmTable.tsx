@@ -117,7 +117,6 @@ export default function ProtectedVmTable({
               <TableHead className="max-w-[200px]">OS</TableHead>
               <TableHead>Overall Status</TableHead>
               <TableHead className="text-center">Jobs</TableHead>
-              <TableHead>Backup Current</TableHead>
               <TableHead>Last Protected</TableHead>
             </TableRow>
           </TableHeader>
@@ -125,7 +124,7 @@ export default function ProtectedVmTable({
           <TableBody>
             {pagination.paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                   No VMs match your filters
                 </TableCell>
               </TableRow>
@@ -171,13 +170,6 @@ export default function ProtectedVmTable({
                     </TableCell>
                     <TableCell className="text-center tabular-nums">
                       {item.protectionSummary?.totalJobs ?? 0}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        status={item.protectionSummary?.backupCurrent ? "Success" : "Stale"}
-                        showIcon={false}
-                        size="sm"
-                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDateTime(item.vm?.lastProtectedDate)}

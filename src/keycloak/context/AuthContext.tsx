@@ -35,7 +35,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Configuration constants
-const IDLE_TIMEOUT_MINUTES = 10;
+const IDLE_TIMEOUT_MINUTES = 5;
 const TOKEN_REFRESH_INTERVAL_SECONDS = 30;
 const TOKEN_MIN_VALIDITY_SECONDS = 60;
 

@@ -17,6 +17,10 @@ import {
   WEBHOOK_BACKUP_REPLICATION_URL,
 } from "@/config/env";
 import { safeParseResponse } from "@/lib/safeFetch";
+import {
+  defensivelyFilterBackupReplicationItems,
+  deriveBackupReplicationTotalJobs,
+} from "@/lib/backupReplicationScope";
 
 const ENDPOINTS = {
   alerts: WEBHOOK_ALERTS_URL,
@@ -88,7 +92,7 @@ export const useOrganizationMetrics = (
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const { authenticatedFetch } = useAuthenticatedFetch();
@@ -277,25 +281,34 @@ export const useOrganizationMetrics = (
           const parsed = await safeParseResponse<any[]>(results[4]);
           if (parsed.ok && Array.isArray(parsed.data)) {
             const mainObj = (parsed.data[0] ?? {}) as Record<string, any>;
-            const matched = Array.isArray(mainObj.matched) ? mainObj.matched : [];
-            const brSummary = mainObj.summary;
-
-            // Use summary if available, otherwise compute from matched
-            const totalJobs = brSummary?.overview?.totalJobs
-              ?? matched.reduce((acc: number, m: any) => acc + (m.jobs?.length ?? 0), 0);
+            const matched = defensivelyFilterBackupReplicationItems(
+              Array.isArray(mainObj.matched) ? mainObj.matched : [],
+              clientId
+            );
+            const jobsWithoutVMs = defensivelyFilterBackupReplicationItems(
+              Array.isArray(mainObj.jobsWithoutVMs) ? mainObj.jobsWithoutVMs : [],
+              clientId
+            );
+            const multiVMJobs = defensivelyFilterBackupReplicationItems(
+              Array.isArray(mainObj.multiVMJobs) ? mainObj.multiVMJobs : [],
+              clientId
+            );
+            const totalJobs = deriveBackupReplicationTotalJobs(
+              matched,
+              jobsWithoutVMs,
+              multiVMJobs
+            );
 
             const statusOf = (m: any) =>
               String(m?.protectionSummary?.overallStatus ?? "").toLowerCase();
 
             veeamMetrics = {
               jobs: totalJobs,
-              success: brSummary?.backupHealth?.successfulJobs
-                ?? matched.filter((m: any) => statusOf(m).includes("success")).length,
-              failed: brSummary?.backupHealth?.failedJobs
-                ?? matched.filter((m: any) => {
-                  const s = statusOf(m);
-                  return s.includes("fail") || s.includes("error");
-                }).length,
+              success: matched.filter((m: any) => statusOf(m).includes("success")).length,
+              failed: matched.filter((m: any) => {
+                const s = statusOf(m);
+                return s.includes("fail") || s.includes("error");
+              }).length,
               loading: false,
             };
           }

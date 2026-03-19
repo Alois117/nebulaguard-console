@@ -7,11 +7,15 @@ import {
   CreditCard,
   BarChart3,
   Clock,
-  Server as ServerIcon,
   Wrench,
   Settings,
   Menu,
   X,
+  Activity,
+  Server as ServerIcon,
+  Database,
+  Lightbulb,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,20 +27,40 @@ interface OrgAdminLayoutProps {
   children: ReactNode;
 }
 
-const menuItems = [
+const adminItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
   { icon: Users, label: "User Management", path: "/admin/users" },
   { icon: CreditCard, label: "Billing", path: "/admin/billing" },
   { icon: BarChart3, label: "Usage Meters", path: "/admin/usage" },
   { icon: Clock, label: "On-Call", path: "/admin/oncall" },
-  { icon: ServerIcon, label: "Zabbix", path: "/admin/zabbix-monitoring" },
   { icon: Wrench, label: "Maintenance", path: "/admin/maintenance" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
+];
+
+const monitoringItems = [
+  { icon: Activity, label: "Overview", path: "/admin/monitoring" },
+  { icon: ServerIcon, label: "Zabbix Metrics", path: "/admin/monitoring/zabbix" },
+  { icon: Database, label: "Veeam Metrics", path: "/admin/monitoring/veeam" },
+  { icon: Lightbulb, label: "AI Insights", path: "/admin/monitoring/insights" },
+  { icon: FileText, label: "Reports", path: "/admin/monitoring/reports" },
 ];
 
 const OrgAdminLayout = ({ children }: OrgAdminLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const renderNavItem = (item: typeof adminItems[0]) => (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      onClick={() => setIsSidebarOpen(false)}
+      className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-all"
+      activeClassName="bg-surface text-accent border-l-4 border-accent"
+    >
+      <item.icon className="w-5 h-5" />
+      <span className="font-medium">{item.label}</span>
+    </NavLink>
+  );
 
   return (
     <div className="min-h-screen w-full bg-background">
@@ -97,19 +121,22 @@ const OrgAdminLayout = ({ children }: OrgAdminLayoutProps) => {
             <X className="h-6 w-6" />
           </Button>
 
-          <nav className="flex-1 overflow-y-auto px-4 space-y-2">
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsSidebarOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-all"
-                activeClassName="bg-surface text-accent border-l-4 border-accent"
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
-              </NavLink>
-            ))}
+          <nav className="flex-1 overflow-y-auto px-4 space-y-1">
+            {/* Admin Section */}
+            <div className="pb-2">
+              <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Administration
+              </p>
+              {adminItems.map(renderNavItem)}
+            </div>
+
+            {/* Monitoring Section */}
+            <div className="pt-2 border-t border-border/50">
+              <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                Monitoring
+              </p>
+              {monitoringItems.map(renderNavItem)}
+            </div>
           </nav>
 
           <div className="flex-shrink-0 border-t border-border p-4 bg-card/50">

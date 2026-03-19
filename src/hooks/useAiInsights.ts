@@ -4,27 +4,32 @@ import { WEBHOOK_AI_INSIGHTS_URL } from "@/config/env";
 import { safeParseResponse } from "@/lib/safeFetch";
 
 const AI_INSIGHTS_ENDPOINT = WEBHOOK_AI_INSIGHTS_URL;
-const REFRESH_INTERVAL = 5000; // 5 seconds
+const REFRESH_INTERVAL = 5000;
 
 export interface AiInsightRaw {
   id?: string | number;
   ai_response_id?: string;
+  ai_response_uuid?: string;
   entity_type?: string;
-  entity_uid?: string; 
+  entity_uid?: string;
   entity_id?: string;
   host?: string;
+  hostname?: string;
   event_reference?: string;
   severity?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
+  timestamp?: string;
   response_content?: string;
   summary?: string;
   title?: string;
   type?: string;
   impact?: string;
-  confidence?: number;
+  confidence?: number | null;
+  confidence_score?: number | null;
   recommendation?: string;
+  generated_by?: string | null;
   [key: string]: unknown;
 }
 
@@ -32,7 +37,7 @@ export interface AiInsight {
   id: string;
   entityType: string;
   entityId: string;
-  host: string;
+  host: string | null;
   eventReference: string;
   severity: "critical" | "high" | "medium" | "low" | "info";
   status: string;
@@ -43,11 +48,11 @@ export interface AiInsight {
   title: string;
   type: "prediction" | "anomaly" | "optimization" | "alert" | "info";
   impact: "critical" | "high" | "medium" | "low";
-  confidence: number;
+  confidence: number | null;
   recommendation: string;
 }
 
-export type TimeFilter = "today" | "24h" | "7d" | "30d" | "custom";
+export type TimeFilter = "all" | "today" | "24h" | "7d" | "30d" | "custom";
 
 interface UseAiInsightsOptions {
   pageSize?: number;
@@ -81,110 +86,313 @@ interface UseAiInsightsReturn {
     optimizations: number;
     alerts: number;
   };
-  // ── New fields for summary cards ───────────────
   highPriorityCount: number;
   last24hCount: number;
   mostAffectedHost: string;
-  // ────────────────────────────────────────────────
   refresh: () => Promise<void>;
 }
+
+const UNKNOWN_HOST_VALUES = new Set([
+  "",
+  "unknown",
+  "unknown host",
+  "n/a",
+  "null",
+  "undefined",
+  "—",
+  "-",
+]);
+
+const htmlEntityMap: Record<string, string> = {
+  "&lt;": "<",
+  "&gt;": ">",
+  "&amp;": "&",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " ",
+};
+
+const decodeHtmlEntities = (value?: string): string => {
+  if (!value) return "";
+  return value.replace(/&lt;|&gt;|&amp;|&quot;|&#39;|&nbsp;/g, (match) => htmlEntityMap[match] ?? match);
+};
+
+const stripHtmlTags = (value?: string): string => {
+  if (!value) return "";
+  return decodeHtmlEntities(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+};
+
+const normalizeWhitespace = (value?: string): string => {
+  return (value ?? "").replace(/\r\n/g, "\n").replace(/\u00a0/g, " ").trim();
+};
+
+const safeText = (value?: string | null): string => normalizeWhitespace(stripHtmlTags(value ?? ""));
+
+const titleCaseHost = (host: string): string => {
+  if (!host) return "—";
+  return host;
+};
+
+const isValidHostValue = (value?: string | null): boolean => {
+  if (!value) return false;
+  return !UNKNOWN_HOST_VALUES.has(value.trim().toLowerCase());
+};
+
+const parseLabeledValue = (content: string, label: string): string | null => {
+  const decoded = decodeHtmlEntities(content);
+
+  const patterns = [
+    new RegExp(`\\*\\*${label}:\\*\\*\\s*([^\\n]+)`, "i"),
+    new RegExp(`<b>${label}:<\\/b>\\s*([^\\n<]+)`, "i"),
+    new RegExp(`${label}:\\s*([^\\n]+)`, "i"),
+  ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (match?.[1]) {
+      const cleaned = safeText(match[1])
+        .replace(/\*\*/g, "")
+        .replace(/^:+/, "")
+        .trim();
+
+      if (cleaned) return cleaned;
+    }
+  }
+
+  return null;
+};
+
+const extractHostFromContent = (content?: string): string | null => {
+  if (!content) return null;
+
+  const candidates = [
+    parseLabeledValue(content, "Host"),
+    parseLabeledValue(content, "VM"),
+    parseLabeledValue(content, "Job"),
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    if (isValidHostValue(candidate)) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+};
+
+const extractSeverityFromContent = (content?: string): string | undefined => {
+  const severity = parseLabeledValue(content ?? "", "Severity");
+  if (!severity) return undefined;
+  return severity.replace(/[🟡🟠🔴🟢🔵]/g, "").trim();
+};
+
+const extractImpactFromContent = (content?: string): string | undefined => {
+  return parseLabeledValue(content ?? "", "Impact") ?? undefined;
+};
+
+const extractEventFromContent = (content?: string): string | null => {
+  return parseLabeledValue(content ?? "", "Event");
+};
 
 const normalizeSeverity = (severity?: string): AiInsight["severity"] => {
   if (!severity) return "info";
   const lower = severity.toLowerCase();
-  if (lower === "critical" || lower === "disaster") return "critical";
-  if (lower === "high" || lower === "error") return "high";
-  if (lower === "medium" || lower === "average" || lower === "warning") return "medium";
-  if (lower === "low") return "low";
+
+  if (lower.includes("critical") || lower.includes("disaster")) return "critical";
+  if (lower.includes("high") || lower.includes("error")) return "high";
+  if (lower.includes("medium") || lower.includes("average") || lower.includes("warning")) return "medium";
+  if (lower.includes("low")) return "low";
+
   return "info";
 };
 
 const normalizeImpact = (impact?: string): AiInsight["impact"] => {
   if (!impact) return "medium";
   const lower = impact.toLowerCase();
-  if (lower === "critical") return "critical";
-  if (lower === "high") return "high";
-  if (lower === "low") return "low";
+
+  if (lower.includes("critical")) return "critical";
+  if (lower.includes("high")) return "high";
+  if (lower.includes("low")) return "low";
+
   return "medium";
 };
 
 const normalizeType = (
   type?: string,
   severity?: string,
-  content?: string
+  content?: string,
+  entityType?: string
 ): AiInsight["type"] => {
-  const combined = `${type ?? ""} ${severity ?? ""} ${content ?? ""}`.toLowerCase();
+  const combined = `${type ?? ""} ${severity ?? ""} ${content ?? ""} ${entityType ?? ""}`.toLowerCase();
 
-  if (combined.includes("predict") || combined.includes("forecast"))
-    return "prediction";
-
-  if (combined.includes("anomal") || combined.includes("outlier"))
-    return "anomaly";
-
-  if (combined.includes("optimi") || combined.includes("improve"))
-    return "optimization";
-
-  if (combined.includes("alert") || combined.includes("critical") || combined.includes("warning"))
+  if (combined.includes("predict") || combined.includes("forecast")) return "prediction";
+  if (combined.includes("anomal") || combined.includes("outlier")) return "anomaly";
+  if (combined.includes("optimi") || combined.includes("improve") || combined.includes("best practice")) return "optimization";
+  if (
+    combined.includes("alert") ||
+    combined.includes("critical") ||
+    combined.includes("warning") ||
+    combined.includes("error") ||
+    combined.includes("problem") ||
+    combined.includes("failed")
+  ) {
     return "alert";
+  }
 
   return "info";
 };
 
-const transformInsight = (raw: AiInsightRaw, index: number): AiInsight => {
-  const id =
-    raw.ai_response_id ??
-    raw.event_reference ??
-    `${raw.entity_type}-${raw.entity_uid}-${raw.created_at}`;
+const parseConfidenceValue = (raw: AiInsightRaw): number | null => {
+  if (typeof raw.confidence === "number" && Number.isFinite(raw.confidence)) {
+    return raw.confidence <= 1 ? Math.round(raw.confidence * 100) : Math.round(raw.confidence);
+  }
 
-  const createdAt = raw.created_at ? new Date(raw.created_at) : new Date();
-  const updatedAt = raw.updated_at ? new Date(raw.updated_at) : null;
+  if (typeof raw.confidence_score === "number" && Number.isFinite(raw.confidence_score)) {
+    return raw.confidence_score <= 1
+      ? Math.round(raw.confidence_score * 100)
+      : Math.round(raw.confidence_score);
+  }
 
-  return {
-    id,
-    entityType: raw.entity_type || "Unknown",
-    entityId: raw.entity_id || "",
-    host: raw.host || raw.event_reference?.split("_")[0] || "Unknown Host",
-    eventReference: raw.event_reference || "",
-    severity: normalizeSeverity(raw.severity),
-    status: raw.status || "active",
-    createdAt,
-    updatedAt,
-    responseContent: raw.response_content || "",
-    summary: raw.summary || raw.title || extractSummary(raw.response_content),
-    title: raw.title || generateTitle(raw),
-    type: normalizeType(raw.type, raw.severity, raw.response_content), 
-    impact: normalizeImpact(raw.impact),
-    confidence: typeof raw.confidence === "number" ? raw.confidence : 85,
-    recommendation: raw.recommendation || extractRecommendation(raw.response_content),
-  };
+  return null;
 };
 
-const extractSummary = (content?: string): string => {
-  if (!content) return "No summary available";
-  const firstSentence = content.split(/[.!?]/)[0];
-  if (firstSentence.length <= 150) return firstSentence.trim();
-  return content.substring(0, 147).trim() + "...";
-};
-
-const generateTitle = (raw: AiInsightRaw): string => {
-  if (raw.title) return raw.title;
-  if (raw.entity_type && raw.host) return `${raw.entity_type} - ${raw.host}`;
-  if (raw.entity_type) return `${raw.entity_type} Insight`;
-  return "AI Insight";
+const formatFallbackRecommendation = (): string => {
+  return "Click the card to view the full recommendation.";
 };
 
 const extractRecommendation = (content?: string): string => {
-  if (!content) return "Review the insight details for recommendations";
+  if (!content) return formatFallbackRecommendation();
+
+  const decoded = decodeHtmlEntities(content);
+
   const patterns = [
-    /recommend[ation]*[s]?:?\s*(.+?)(?:\.|$)/i,
-    /suggest[ion]*[s]?:?\s*(.+?)(?:\.|$)/i,
-    /action[s]?:?\s*(.+?)(?:\.|$)/i,
+    /\*?\*?Recommended Actions\*?\*?:?\s*([\s\S]+)$/i,
+    /\*?\*?Recommendations?\*?\*?:?\s*([\s\S]+)$/i,
+    /\*?\*?Mitigations?\*?\*?:?\s*([\s\S]+)$/i,
+    /\*?\*?Actions?\*?\*?:?\s*([\s\S]+)$/i,
   ];
+
   for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match && match[1]) return match[1].trim();
+    const match = decoded.match(pattern);
+    if (match?.[1]) {
+      const cleaned = safeText(match[1]).replace(/\s+/g, " ").trim();
+      if (cleaned && cleaned !== "=problem") {
+        return cleaned.slice(0, 220);
+      }
+    }
   }
-  return "Review the insight details for recommendations";
+
+  return formatFallbackRecommendation();
+};
+
+const extractSummary = (content?: string): string => {
+  if (!content) return "No summary available.";
+
+  const event = extractEventFromContent(content);
+  const impact = extractImpactFromContent(content);
+
+  if (event && impact) {
+    return `${event}. ${impact}`.slice(0, 220);
+  }
+
+  const plain = safeText(content);
+  const firstMeaningfulLine = plain
+    .split("\n")
+    .map((line) => line.trim())
+    .find(
+      (line) =>
+        line &&
+        !/^zabbix ai analysis$/i.test(line) &&
+        !/^zabbix event summary:?$/i.test(line)
+    );
+
+  if (!firstMeaningfulLine) return "No summary available.";
+
+  return firstMeaningfulLine.length <= 180
+    ? firstMeaningfulLine
+    : `${firstMeaningfulLine.slice(0, 177).trim()}...`;
+};
+
+const generateTitle = (raw: AiInsightRaw, derivedHost: string | null): string => {
+  if (raw.title && safeText(raw.title)) return safeText(raw.title);
+
+  const content = raw.response_content ?? "";
+  const event = extractEventFromContent(content);
+  if (event) return event;
+
+  if (raw.entity_type && derivedHost) return `${raw.entity_type} - ${derivedHost}`;
+  if (raw.entity_type) return `${raw.entity_type} Insight`;
+
+  return "AI Insight";
+};
+
+const resolveHost = (raw: AiInsightRaw): string | null => {
+  const directCandidates = [raw.host, raw.hostname, raw.entity_uid]
+    .map((value) => safeText(String(value ?? "")))
+    .filter(Boolean);
+
+  for (const candidate of directCandidates) {
+    if (isValidHostValue(candidate) && !candidate.includes("_") && !candidate.includes("{") && !candidate.includes("```json")) {
+      return candidate;
+    }
+  }
+
+  const fromContent = extractHostFromContent(raw.response_content);
+  if (isValidHostValue(fromContent)) {
+    return fromContent;
+  }
+
+  return null;
+};
+
+const transformInsight = (raw: AiInsightRaw): AiInsight => {
+  const id =
+    String(
+      raw.ai_response_id ??
+        raw.id ??
+        raw.event_reference ??
+        `${raw.entity_type ?? "insight"}-${raw.entity_uid ?? "unknown"}-${raw.created_at ?? raw.timestamp ?? Date.now()}`
+    );
+
+  const createdAt = raw.created_at
+    ? new Date(raw.created_at)
+    : raw.timestamp
+      ? new Date(raw.timestamp)
+      : new Date();
+
+  const updatedAt = raw.updated_at ? new Date(raw.updated_at) : null;
+
+  const content = normalizeWhitespace(decodeHtmlEntities(raw.response_content ?? ""));
+  const derivedHost = resolveHost(raw);
+  const severitySource = raw.severity ?? extractSeverityFromContent(content);
+  const impactSource = raw.impact ?? extractImpactFromContent(content);
+  const recommendation =
+    raw.recommendation && safeText(raw.recommendation) !== "=problem"
+      ? safeText(raw.recommendation)
+      : extractRecommendation(content);
+
+  return {
+    id,
+    entityType: safeText(raw.entity_type) || "Unknown",
+    entityId: safeText(raw.entity_id) || safeText(raw.entity_uid) || "",
+    host: derivedHost,
+    eventReference: safeText(raw.event_reference),
+    severity: normalizeSeverity(severitySource),
+    status: safeText(raw.status) || "generated",
+    createdAt,
+    updatedAt,
+    responseContent: content,
+    summary: safeText(raw.summary) || extractSummary(content),
+    title: generateTitle(raw, derivedHost),
+    type: normalizeType(raw.type, severitySource, content, raw.entity_type),
+    impact: normalizeImpact(impactSource),
+    confidence: parseConfidenceValue(raw),
+    recommendation,
+  };
 };
 
 const sortInsights = (insights: AiInsight[]): AiInsight[] => {
@@ -201,78 +409,90 @@ export const useAiInsights = (options: UseAiInsightsOptions = {}): UseAiInsights
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("7d");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>(undefined);
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
 
   const insightsMapRef = useRef<Map<string, AiInsight>>(new Map());
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { authenticatedFetch } = useAuthenticatedFetch();
 
-  const fetchInsights = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setLoading(true);
+  const fetchInsights = useCallback(
+    async (silent = false) => {
+      try {
+        if (!silent) setLoading(true);
 
-      const response = await authenticatedFetch(AI_INSIGHTS_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
+        const response = await authenticatedFetch(AI_INSIGHTS_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        });
 
-      const result = await safeParseResponse<AiInsightRaw[]>(response, AI_INSIGHTS_ENDPOINT);
-      if (!result.ok) {
-        throw new Error(result.userMessage);
-      }
+        const result = await safeParseResponse<AiInsightRaw[] | AiInsightRaw>(response, AI_INSIGHTS_ENDPOINT);
 
-      if (!result.data) {
-        setInsights([]);
+        if (!result.ok) {
+          throw new Error(result.userMessage || "We couldn't load AI insights right now.");
+        }
+
+        if (!result.data) {
+          setInsights([]);
+          setIsConnected(true);
+          setLastUpdated(new Date());
+          setError(null);
+          return;
+        }
+
+        const rawInsights = Array.isArray(result.data) ? result.data : [result.data];
+        const transformedInsights = rawInsights.map(transformInsight);
+
+        const newMap = new Map<string, AiInsight>();
+
+        transformedInsights.forEach((insight) => {
+          const existing = insightsMapRef.current.get(insight.id);
+
+          if (!existing) {
+            newMap.set(insight.id, insight);
+            return;
+          }
+
+          const incomingUpdated = insight.updatedAt?.getTime() ?? insight.createdAt.getTime();
+          const existingUpdated = existing.updatedAt?.getTime() ?? existing.createdAt.getTime();
+
+          newMap.set(insight.id, incomingUpdated >= existingUpdated ? insight : existing);
+        });
+
+        insightsMapRef.current = newMap;
+
+        const nextInsights = sortInsights(Array.from(newMap.values()));
+
+        setInsights((prev) => {
+          const prevSerialized = JSON.stringify(prev);
+          const nextSerialized = JSON.stringify(nextInsights);
+          return prevSerialized === nextSerialized ? prev : nextInsights;
+        });
+
         setIsConnected(true);
         setLastUpdated(new Date());
         setError(null);
+      } catch (err) {
+        console.error("[useAiInsights] Fetch error:", err);
+
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "We couldn't load AI insights right now. Please try again.";
+
+        if (!silent) setError(message);
+        setIsConnected(false);
+      } finally {
         if (!silent) setLoading(false);
-        return;
       }
-
-      const rawInsights: AiInsightRaw[] = Array.isArray(result.data) ? result.data : [result.data];
-
-      const transformedInsights = rawInsights.map((raw, idx) => transformInsight(raw, idx));
-
-      const newInsightsMap = new Map<string, AiInsight>();
-      transformedInsights.forEach((insight) => {
-        const existing = insightsMapRef.current.get(insight.id);
-        if (!existing || existing.createdAt.getTime() !== insight.createdAt.getTime()) {
-          newInsightsMap.set(insight.id, insight);
-        } else {
-          newInsightsMap.set(insight.id, existing);
-        }
-      });
-
-      insightsMapRef.current = newInsightsMap;
-
-      const newSorted = sortInsights(Array.from(newInsightsMap.values()));
-
-      setInsights((prev) => {
-        if (JSON.stringify(prev) === JSON.stringify(newSorted)) {
-          return prev;
-        }
-        return newSorted;
-      });
-
-      setIsConnected(true);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      const safe = err instanceof Error ? err.message : "We couldn't load AI insights. Please try again.";
-      console.error("[useAiInsights] Fetch error:", err);
-      if (!silent) setError(safe);
-      setIsConnected(false);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [authenticatedFetch]);
+    },
+    [authenticatedFetch]
+  );
 
   useEffect(() => {
     fetchInsights(false);
@@ -298,6 +518,8 @@ export const useAiInsights = (options: UseAiInsightsOptions = {}): UseAiInsights
       const now = Date.now();
 
       switch (timeFilter) {
+        case "all":
+          return true;
         case "today": {
           const startOfDay = new Date();
           startOfDay.setHours(0, 0, 0, 0);
@@ -339,27 +561,30 @@ export const useAiInsights = (options: UseAiInsightsOptions = {}): UseAiInsights
     return filteredInsights.slice(startIndex, endIndex);
   }, [filteredInsights, startIndex, endIndex]);
 
-  const counts = useMemo(() => ({
-    total: insights.length,
-    predictions: insights.filter((i) => i.type === "prediction").length,
-    anomalies: insights.filter((i) => i.type === "anomaly").length,
-    optimizations: insights.filter((i) => i.type === "optimization").length,
-    alerts: insights.filter((i) => i.type === "alert").length,
-  }), [insights]);
+  const counts = useMemo(
+    () => ({
+      total: insights.length,
+      predictions: insights.filter((i) => i.type === "prediction").length,
+      anomalies: insights.filter((i) => i.type === "anomaly").length,
+      optimizations: insights.filter((i) => i.type === "optimization").length,
+      alerts: insights.filter((i) => i.type === "alert").length,
+    }),
+    [insights]
+  );
 
-  // ── New summary metrics ───────────────────────────────────────────────────
   const highPriorityCount = useMemo(() => {
-    return insights.filter(i => 
-      i.severity === "critical" || 
-      i.severity === "high" || 
-      i.impact === "critical" || 
-      i.impact === "high"
+    return insights.filter(
+      (i) =>
+        i.severity === "critical" ||
+        i.severity === "high" ||
+        i.impact === "critical" ||
+        i.impact === "high"
     ).length;
   }, [insights]);
 
   const last24hCount = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return insights.filter(i => i.createdAt.getTime() >= cutoff).length;
+    return insights.filter((i) => i.createdAt.getTime() >= cutoff).length;
   }, [insights]);
 
   const mostAffectedHost = useMemo(() => {
@@ -367,17 +592,17 @@ export const useAiInsights = (options: UseAiInsightsOptions = {}): UseAiInsights
 
     const hostCounts = new Map<string, number>();
 
-    insights.forEach(i => {
-      let host = (i.host || "unknown").trim().toLowerCase();
-      if (host && host !== "unknown" && host !== "") {
-        hostCounts.set(host, (hostCounts.get(host) || 0) + 1);
+    insights.forEach((insight) => {
+      const host = safeText(insight.host ?? "");
+      if (isValidHostValue(host)) {
+        hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
       }
     });
 
     if (hostCounts.size === 0) return "—";
 
+    let topHost = "—";
     let maxCount = 0;
-    let topHost = "";
 
     hostCounts.forEach((count, host) => {
       if (count > maxCount) {
@@ -386,13 +611,8 @@ export const useAiInsights = (options: UseAiInsightsOptions = {}): UseAiInsights
       }
     });
 
-    // Nice capitalization
-    return topHost
-      .split(/[-_.]/)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join("-");
+    return titleCaseHost(topHost);
   }, [insights]);
-  // ───────────────────────────────────────────────────────────────────────────
 
   const refresh = useCallback(async () => {
     await fetchInsights(false);

@@ -23,6 +23,7 @@ interface ZabbixHostsTableProps {
   pageSize: number;
   totalHosts: number;
   onPageChange: (page: number) => void;
+  onHostClick?: (host: ZabbixHost) => void;
 }
 
 /**
@@ -38,6 +39,7 @@ const ZabbixHostsTable = ({
   pageSize,
   totalHosts,
   onPageChange,
+  onHostClick,
 }: ZabbixHostsTableProps) => {
   // Loading state - skeleton rows
   if (loading && hosts.length === 0) {
@@ -114,7 +116,11 @@ const ZabbixHostsTable = ({
         </TableHeader>
         <TableBody>
           {hosts.map((host) => (
-            <TableRow key={host.id} className="hover:bg-muted/50">
+            <TableRow
+              key={host.id}
+              className={`hover:bg-muted/50 ${onHostClick ? "cursor-pointer" : ""}`}
+              onClick={onHostClick ? () => onHostClick(host) : undefined}
+            >
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Server className="w-5 h-5 text-primary shrink-0" />

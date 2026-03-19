@@ -8,27 +8,30 @@ const FloatingAIChat = () => {
 
   return (
     <>
-      {/* Floating Chat Button - Smaller and positioned to avoid header */}
       <Button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 h-12 w-12 rounded-full neon-button z-50 md:bottom-6 md:right-6 md:h-14 md:w-14"
-        aria-label="Open AI Chat"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="
+          fixed z-50 rounded-full neon-button
+          bottom-4 right-4
+          h-12 w-12
+          sm:bottom-5 sm:right-5
+          sm:h-13 sm:w-13
+          md:bottom-6 md:right-6
+          md:h-14 md:w-14
+        "
+        aria-label={isOpen ? "Close AI Chat" : "Open AI Chat"}
       >
         {isOpen ? (
-          <X className="w-5 h-5 md:w-6 md:h-6" />
+          <X className="h-5 w-5 md:h-6 md:w-6" />
         ) : (
           <div className="relative">
-            <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
-            <Sparkles className="w-2 h-2 md:w-3 md:h-3 text-accent absolute -top-1 -right-1 animate-pulse-glow" />
+            <MessageCircle className="h-5 w-5 md:h-6 md:w-6" />
+            <Sparkles className="absolute -right-1 -top-1 h-2 w-2 md:h-3 md:w-3 text-accent animate-pulse-glow" />
           </div>
         )}
       </Button>
 
-      {/* Chat Drawer - Ensure it doesn't overlap with header */}
-      <ChatDrawer 
-        isOpen={isOpen} 
-        onClose={() => setIsOpen(false)} 
-      />
+      <ChatDrawer isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );
 };

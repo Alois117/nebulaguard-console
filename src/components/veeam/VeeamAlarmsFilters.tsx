@@ -7,26 +7,31 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AlarmStatus, AlarmSeverity, TimeRange } from "@/hooks/useVeeamAlarms";
 
 interface VeeamAlarmsFiltersProps {
-  filterStatus: AlarmStatus | null;
-  onFilterStatusChange: (status: AlarmStatus | null) => void;
-  filterSeverity: AlarmSeverity | null;
-  onFilterSeverityChange: (severity: AlarmSeverity | null) => void;
-  filterEntityType: string | null;
-  onFilterEntityTypeChange: (entityType: string | null) => void;
+  // ✅ "All" everywhere (non-nullable)
+  filterStatus: AlarmStatus;
+  onFilterStatusChange: (status: AlarmStatus) => void;
+
+  filterSeverity: AlarmSeverity;
+  onFilterSeverityChange: (severity: AlarmSeverity) => void;
+
+  // ✅ "All" everywhere (string, default "All")
+  filterEntityType: string;
+  onFilterEntityTypeChange: (entityType: string) => void;
+
+  // Should include "All" first (hook provides this)
   entityTypes: string[];
+
+  // ✅ includes "all"
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
+
   customDateFrom: Date | undefined;
   onCustomDateFromChange: (date: Date | undefined) => void;
   customDateTo: Date | undefined;
@@ -49,16 +54,16 @@ const VeeamAlarmsFilters = ({
   onCustomDateToChange,
 }: VeeamAlarmsFiltersProps) => {
   const hasActiveFilters =
-    filterStatus !== null ||
-    filterSeverity !== null ||
-    filterEntityType !== null ||
-    timeRange !== "24h";
+    filterStatus !== "All" ||
+    filterSeverity !== "All" ||
+    filterEntityType !== "All" ||
+    timeRange !== "all";
 
   const clearFilters = () => {
-    onFilterStatusChange(null);
-    onFilterSeverityChange(null);
-    onFilterEntityTypeChange(null);
-    onTimeRangeChange("24h");
+    onFilterStatusChange("All");
+    onFilterSeverityChange("All");
+    onFilterEntityTypeChange("All");
+    onTimeRangeChange("all");
     onCustomDateFromChange(undefined);
     onCustomDateToChange(undefined);
   };
@@ -66,17 +71,12 @@ const VeeamAlarmsFilters = ({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Status Filter */}
-      <Select
-        value={filterStatus || "all"}
-        onValueChange={(value) =>
-          onFilterStatusChange(value === "all" ? null : (value as AlarmStatus))
-        }
-      >
+      <Select value={filterStatus} onValueChange={(v) => onFilterStatusChange(v as AlarmStatus)}>
         <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="All">All Status</SelectItem>
           <SelectItem value="Active">Active</SelectItem>
           <SelectItem value="Acknowledged">Acknowledged</SelectItem>
           <SelectItem value="Resolved">Resolved</SelectItem>
@@ -85,17 +85,12 @@ const VeeamAlarmsFilters = ({
       </Select>
 
       {/* Severity Filter */}
-      <Select
-        value={filterSeverity || "all"}
-        onValueChange={(value) =>
-          onFilterSeverityChange(value === "all" ? null : (value as AlarmSeverity))
-        }
-      >
+      <Select value={filterSeverity} onValueChange={(v) => onFilterSeverityChange(v as AlarmSeverity)}>
         <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="Severity" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Severity</SelectItem>
+          <SelectItem value="All">All Severity</SelectItem>
           <SelectItem value="Critical">Critical</SelectItem>
           <SelectItem value="Warning">Warning</SelectItem>
           <SelectItem value="High">High</SelectItem>
@@ -105,34 +100,26 @@ const VeeamAlarmsFilters = ({
       </Select>
 
       {/* Entity Type Filter */}
-      <Select
-        value={filterEntityType || "all"}
-        onValueChange={(value) =>
-          onFilterEntityTypeChange(value === "all" ? null : value)
-        }
-      >
+      <Select value={filterEntityType} onValueChange={(v) => onFilterEntityTypeChange(v)}>
         <SelectTrigger className="w-[160px]">
           <SelectValue placeholder="Entity Type" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Entities</SelectItem>
           {entityTypes.map((type) => (
             <SelectItem key={type} value={type}>
-              {type}
+              {type === "All" ? "All Entities" : type}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       {/* Time Range Filter */}
-      <Select
-        value={timeRange}
-        onValueChange={(value) => onTimeRangeChange(value as TimeRange)}
-      >
+      <Select value={timeRange} onValueChange={(v) => onTimeRangeChange(v as TimeRange)}>
         <SelectTrigger className="w-[140px]">
           <SelectValue placeholder="Time Range" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="all">All time</SelectItem>
           <SelectItem value="1h">Last 1 hour</SelectItem>
           <SelectItem value="24h">Last 24 hours</SelectItem>
           <SelectItem value="7d">Last 7 days</SelectItem>

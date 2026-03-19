@@ -21,7 +21,7 @@ export const useIdleTimeout = ({
   username,
   email,
 }: UseIdleTimeoutOptions): void => {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
   const clearIdleTimer = useCallback(() => {
@@ -76,7 +76,7 @@ export const useIdleTimeout = ({
     ];
 
     // Throttled activity handler to prevent excessive timer resets
-    let throttleTimeout: NodeJS.Timeout | null = null;
+    let throttleTimeout: ReturnType<typeof setTimeout> | null = null;
     const throttledResetActivity = () => {
       if (throttleTimeout) return;
       throttleTimeout = setTimeout(() => {

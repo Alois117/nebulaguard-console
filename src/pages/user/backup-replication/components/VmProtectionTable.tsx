@@ -18,12 +18,6 @@ function overallStatusBadgeVariant(status?: string) {
   return "secondary";
 }
 
-function backupCurrentBadge(backupCurrent?: boolean) {
-  if (backupCurrent === true) return { label: "Current", variant: "default" as const };
-  if (backupCurrent === false) return { label: "Not Current", variant: "secondary" as const };
-  return { label: "—", variant: "secondary" as const };
-}
-
 export default function VmProtectionTable({ matched, loading }: { matched: MatchedVm[]; loading: boolean }) {
   const [expandedVm, setExpandedVm] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -38,7 +32,7 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
 
   if (loading) {
     return (
-      <div className="text-sm text-muted-foreground py-8">Loading backup &amp; replication data…</div>
+      <div className="text-sm text-muted-foreground py-8">Loading backup &amp; replication dataâ€¦</div>
     );
   }
 
@@ -55,7 +49,6 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
               <TableHead>Protected</TableHead>
               <TableHead>Overall Status</TableHead>
               <TableHead className="text-right">Jobs Count</TableHead>
-              <TableHead>Backup Current</TableHead>
               <TableHead>Last Protected</TableHead>
             </TableRow>
           </TableHeader>
@@ -63,16 +56,14 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                   No VMs found
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((item) => {
-                const vmName = item.vm?.name ?? "—";
+                const vmName = item.vm?.name ?? "â€”";
                 const isOpen = expandedVm === vmName;
-                const backupCurrent = backupCurrentBadge(item.protectionSummary?.backupCurrent);
-
                 return (
                   <Fragment key={vmName}>
                     <TableRow className="hover:bg-muted/30">
@@ -88,9 +79,9 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
                         </Button>
                       </TableCell>
                       <TableCell className="font-medium">{vmName}</TableCell>
-                      <TableCell>{item.vm?.powerState ?? "—"}</TableCell>
+                      <TableCell>{item.vm?.powerState ?? "â€”"}</TableCell>
                       <TableCell className="max-w-[240px] truncate" title={item.vm?.guestOs}>
-                        {item.vm?.guestOs ?? "—"}
+                        {item.vm?.guestOs ?? "â€”"}
                       </TableCell>
                       <TableCell>
                         <Badge variant={item.vm?.isProtected ? "default" : "secondary"}>
@@ -99,19 +90,16 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
                       </TableCell>
                       <TableCell>
                         <Badge variant={overallStatusBadgeVariant(item.protectionSummary?.overallStatus) as any}>
-                          {item.protectionSummary?.overallStatus ?? "—"}
+                          {item.protectionSummary?.overallStatus ?? "â€”"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">{item.protectionSummary?.totalJobs ?? 0}</TableCell>
-                      <TableCell>
-                        <Badge variant={backupCurrent.variant}>{backupCurrent.label}</Badge>
-                      </TableCell>
                       <TableCell>{formatDateTime(item.vm?.lastProtectedDate)}</TableCell>
                     </TableRow>
 
                     {isOpen && (
                       <TableRow className="bg-surface/20">
-                        <TableCell colSpan={9} className="p-4">
+                        <TableCell colSpan={8} className="p-4">
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <div className="text-sm font-semibold">Jobs</div>
@@ -134,3 +122,4 @@ export default function VmProtectionTable({ matched, loading }: { matched: Match
     </>
   );
 }
+

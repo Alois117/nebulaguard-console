@@ -124,7 +124,7 @@ export const useZabbixHosts = (pageSize = 10): UseZabbixHostsReturn => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Refs for silent refresh and cleanup
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hostsMapRef = useRef<Map<string, ZabbixHost>>(new Map());
 
   const { authenticatedFetch } = useAuthenticatedFetch();

@@ -3,7 +3,8 @@ import { Alert } from "@/components/alerts/AlertsTable";
 import { AlertSeverity } from "@/components/alerts/SeverityBadge";
 import { useAuthenticatedFetch } from "@/keycloak/hooks/useAuthenticatedFetch";
 import { WEBHOOK_ALERTS_URL } from "@/config/env";
-import { safeParseResponse, networkError } from "@/lib/safeFetch";
+import { safeParseResponse } from "@/lib/safeFetch";
+import { extractAlertHost, extractAlertProblem, normalizeAlertInlineText } from "@/lib/alertPresentation";
 
 const WEBHOOK_URL = WEBHOOK_ALERTS_URL;
 const REFRESH_INTERVAL = 5000; // 5 seconds
@@ -14,6 +15,9 @@ const REFRESH_INTERVAL = 5000; // 5 seconds
 export interface WebhookAlert {
   client_id: number;
   first_ai_response: string;
+  response_content?: string;
+  host_name?: string;
+  hostname?: string;
   created_at: string;
   updated_at: string;
   zbx_raw?: {
@@ -30,12 +34,18 @@ export interface WebhookAlert {
       r_clock?: string;
       objectid?: string;
       severity?: string;
+      host?: string;
+      host_name?: string;
+      hostname?: string;
     };
     dedupe_key?: string;
     description?: string;
     problem_name?: string;
     severity_num?: number;
     update_fetch_time?: number;
+    host?: string;
+    host_name?: string;
+    hostname?: string;
   };
   first_seen: string;
   seen_count: number;
@@ -49,6 +59,7 @@ export interface WebhookAlert {
   severity?: string;
   eventid?: string;
   clock?: number;
+  host?: string;
 }
 
 // Map severity string → our AlertSeverity enum
@@ -90,14 +101,15 @@ const extractCategory = (name: string = "", description: string = ""): string =>
   return "System";
 };
 
-// Extract host – prefer AI response pattern **Host:** …
-const extractHost = (aiResponse: string, dedupeKey: string = ""): string => {
-  const hostMatch = aiResponse.match(/\*\*Host:\*\*\s*([^\n.]+)/i);
-  if (hostMatch) return hostMatch[1].trim();
+const toStableNumericId = (eventId: string, seed: string): number => {
+  const numeric = Number(eventId);
+  if (Number.isFinite(numeric)) return numeric;
 
-  // Fallback: first meaningful part of dedupe_key
-  const parts = dedupeKey.split(/[_-]/);
-  return parts[0] && parts[0] !== "" ? parts[0] : "unknown-host";
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
 };
 
 // ────────────────────────────────────────────────
@@ -134,28 +146,73 @@ const transformWebhookAlert = (webhook: WebhookAlert): Alert => {
     rawEvent.eventid ??
     "0";
 
-  const clock =
-    webhook.clock ??
-    raw.clock ??
-    rawEvent.clock ??
-    0;
-
   const severity = mapSeverity(severityStr);
   const acknowledged = !!(rawEvent.r_clock && rawEvent.r_clock !== "0");
+  const contentCandidates = [
+    webhook.response_content,
+    webhook.first_ai_response,
+    raw.description,
+    rawEvent.name,
+    webhook.description,
+    webhook.name,
+  ]
+    .map((entry) => (typeof entry === "string" ? entry : ""))
+    .filter((entry) => entry.trim().length > 0);
+  const content = contentCandidates[0] ?? "";
+  const contentForExtraction = contentCandidates.join("\n");
+  const rawRecord = raw as Record<string, unknown>;
+  const rawEventRecord = rawEvent as Record<string, unknown>;
+  const rawHost =
+    webhook.host_name ??
+    webhook.hostname ??
+    webhook.host ??
+    (rawRecord.host_name as string | undefined) ??
+    (rawRecord.hostname as string | undefined) ??
+    (rawRecord.host as string | undefined) ??
+    (rawEventRecord.host_name as string | undefined) ??
+    (rawEventRecord.hostname as string | undefined) ??
+    (rawEventRecord.host as string | undefined);
+  const host = extractAlertHost({
+    directHost: rawHost,
+    content: contentForExtraction || content,
+    dedupeKey,
+  });
+  const problem = extractAlertProblem({
+    primary: name,
+    content: contentForExtraction || content,
+    fallbacks: [
+      raw.problem_name,
+      raw.description,
+      rawEvent.name,
+      webhook.description,
+      webhook.name,
+    ],
+  });
+  const stableSeed = [
+    dedupeKey,
+    problem,
+    host,
+    webhook.last_seen_at,
+    webhook.first_seen,
+    webhook.created_at,
+  ]
+    .filter(Boolean)
+    .join("|");
+  const stableId = toStableNumericId(eventId, stableSeed || `${problem}|${host}`);
 
   return {
-    id: parseInt(eventId, 10),
+    id: stableId,
     severity,
-    host: extractHost(webhook.first_ai_response, dedupeKey),
-    category: extractCategory(name, webhook.description ?? raw.description ?? rawEvent.name ?? ""),
-    problem: name,
+    host,
+    category: extractCategory(problem, webhook.description ?? raw.description ?? rawEvent.name ?? ""),
+    problem,
     duration: calculateDuration(webhook.last_seen_at),
     scope: "Production",
     acknowledged,
     status: acknowledged ? "acknowledged" : "active",
     timestamp: new Date(webhook.created_at).toLocaleString(),
     // Extended fields for drawer / details
-    aiInsights: webhook.first_ai_response,
+    aiInsights: normalizeAlertInlineText(content) ? content : undefined,
     timesSent: webhook.times_sent,
     seenCount: webhook.seen_count,
     firstSeen: webhook.first_seen,
@@ -217,7 +274,7 @@ export const useAlerts = (): UseAlertsReturn => {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const alertsMapRef = useRef<Map<number, Alert>>(new Map());
 
   const counts: AlertCounts = {
@@ -261,7 +318,16 @@ export const useAlerts = (): UseAlertsReturn => {
 
       // Transform & filter out obviously invalid entries
       const transformed = webhookAlerts
-        .filter((w) => w.first_ai_response && w.last_seen_at)
+        .filter(
+          (w) =>
+            Boolean(
+              w.first_ai_response ||
+                w.response_content ||
+                w.zbx_raw?.description ||
+                w.description ||
+                w.name
+            ) && Boolean(w.last_seen_at)
+        )
         .map(transformWebhookAlert);
 
       // Merge strategy – only update changed items (prevents UI flicker)

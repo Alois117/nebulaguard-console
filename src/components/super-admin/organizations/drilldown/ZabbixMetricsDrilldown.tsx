@@ -1,14 +1,11 @@
 /**
  * Zabbix Metrics Drilldown Component
- * Combines Alerts and Hosts into a single tabbed view
- * Mirrors User Dashboard's Zabbix Metrics grouping
+ * Reuses the shared Zabbix presentational view with Super Admin adapters.
  */
-import { useState } from "react";
-import { Activity, AlertTriangle, Server } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertItem, HostItem } from "@/hooks/super-admin/organizations/useOrganizationDetails";
-import AlertsDrilldown from "./AlertsDrilldown";
-import HostsDrilldown from "./HostsDrilldown";
+import ZabbixMetricsContentView from "@/components/monitoring/ZabbixMetricsContentView";
+import useSuperAdminZabbixAlerts from "@/hooks/super-admin/shared-ui/useSuperAdminZabbixAlerts";
+import useSuperAdminZabbixHosts from "@/hooks/super-admin/shared-ui/useSuperAdminZabbixHosts";
 
 interface ZabbixMetricsDrilldownProps {
   orgName: string;
@@ -16,15 +13,22 @@ interface ZabbixMetricsDrilldownProps {
     items: AlertItem[];
     loading: boolean;
     error: string | null;
+    isConnected?: boolean;
+    lastUpdated?: Date | null;
   };
   hosts: {
     items: HostItem[];
     loading: boolean;
     error: string | null;
+    isConnected?: boolean;
+    lastUpdated?: Date | null;
   };
   onRefreshAlerts: () => void;
   onRefreshHosts: () => void;
-  onItemClick: (item: AlertItem | HostItem) => void;
+  initialTab?: "alerts" | "hosts";
+  initialHostQuery?: string;
+  selectedOrganizationId?: string | null;
+  selectedOrganizationClientId?: number | null;
 }
 
 const ZabbixMetricsDrilldown = ({
@@ -33,57 +37,42 @@ const ZabbixMetricsDrilldown = ({
   hosts,
   onRefreshAlerts,
   onRefreshHosts,
-  onItemClick,
+  initialTab = "alerts",
+  initialHostQuery = "",
+  selectedOrganizationId = null,
+  selectedOrganizationClientId = null,
 }: ZabbixMetricsDrilldownProps) => {
-  const [activeTab, setActiveTab] = useState("alerts");
+  const alertsView = useSuperAdminZabbixAlerts({
+    alerts: alerts.items,
+    loading: alerts.loading,
+    error: alerts.error,
+    isConnected: alerts.isConnected ?? !alerts.error,
+    lastUpdated: alerts.lastUpdated ?? null,
+    selectedOrganizationId,
+    selectedOrganizationClientId,
+    onRefresh: onRefreshAlerts,
+  });
+
+  const hostsView = useSuperAdminZabbixHosts({
+    hosts: hosts.items,
+    loading: hosts.loading,
+    error: hosts.error,
+    isConnected: hosts.isConnected ?? !hosts.error,
+    lastUpdated: hosts.lastUpdated ?? null,
+    selectedOrganizationId,
+    selectedOrganizationClientId,
+    onRefresh: onRefreshHosts,
+  });
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Activity className="w-5 h-5 text-primary" />
-          Zabbix Metrics for {orgName}
-        </h3>
-        <p className="text-sm text-muted-foreground">Combined alerts and host monitoring data</p>
-      </div>
-
-      {/* Tabbed View */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted/50 border border-border/50">
-          <TabsTrigger value="alerts" className="gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            Alerts ({alerts.items.length})
-          </TabsTrigger>
-          <TabsTrigger value="hosts" className="gap-2">
-            <Server className="w-4 h-4" />
-            Hosts ({hosts.items.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="alerts" className="mt-4">
-          <AlertsDrilldown
-            orgName={orgName}
-            alerts={alerts.items}
-            loading={alerts.loading}
-            error={alerts.error}
-            onRefresh={onRefreshAlerts}
-            onItemClick={onItemClick}
-          />
-        </TabsContent>
-
-        <TabsContent value="hosts" className="mt-4">
-          <HostsDrilldown
-            orgName={orgName}
-            hosts={hosts.items}
-            loading={hosts.loading}
-            error={hosts.error}
-            onRefresh={onRefreshHosts}
-            onItemClick={onItemClick}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+    <ZabbixMetricsContentView
+      alertsView={alertsView}
+      hostsView={hostsView}
+      title={`Zabbix Metrics for ${orgName}`}
+      description="Combined alerts and host monitoring data"
+      initialTab={initialTab}
+      initialSearchQuery={initialHostQuery}
+    />
   );
 };
 

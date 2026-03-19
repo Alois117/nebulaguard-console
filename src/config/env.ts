@@ -8,7 +8,7 @@
 
 // ─── Keycloak / Auth ────────────────────────────────────────────────────────
 export const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080';
-export const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'Jarvis';
+export const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'Avis';
 export const KEYCLOAK_CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'react-frontend';
 
 /** Fully qualified OIDC userinfo endpoint */
@@ -29,7 +29,7 @@ export const WEBHOOK_BASE_URL = import.meta.env.VITE_WEBHOOK_BASE_URL || 'http:/
 
 // ─── Webhook Endpoints (each backed by its own env variable) ────────────────
 export const WEBHOOK_ALERTS_URL =
-  import.meta.env.VITE_WEBHOOK_ALERTS_URL || `${WEBHOOK_BASE_URL}/webhook/ai/insights`;
+  import.meta.env.VITE_WEBHOOK_ALERTS_URL || `${WEBHOOK_BASE_URL}/webhook/zabbix/alerts`;
 
 export const WEBHOOK_AI_INSIGHTS_URL =
   import.meta.env.VITE_WEBHOOK_AI_INSIGHTS_URL || `${WEBHOOK_BASE_URL}/webhook/agent-insights`;
@@ -52,8 +52,15 @@ export const WEBHOOK_VEEAM_VMS_URL =
 export const WEBHOOK_BACKUP_REPLICATION_URL =
   import.meta.env.VITE_WEBHOOK_BACKUP_REPLICATION_URL || `${WEBHOOK_BASE_URL}/webhook/backupandreplication`;
 
-export const WEBHOOK_JARVIS_ASSISTANT_URL =
-  import.meta.env.VITE_WEBHOOK_JARVIS_ASSISTANT_URL || `${WEBHOOK_BASE_URL}/webhook/Jarvis-AI-Assistant`;
+export const WEBHOOK_AI_CHAT_URL =
+  import.meta.env.VITE_WEBHOOK_AI_CHAT_URL || `${WEBHOOK_BASE_URL}/webhook/AI-chat`;
+
+export const WEBHOOK_FEEDBACK_URL =
+  import.meta.env.VITE_WEBHOOK_FEEDBACK_URL || `${WEBHOOK_BASE_URL}/webhook/Feedback`;
+
+// ─── Custom / On-Demand Reports ─────────────────────────────────────────────
+export const WEBHOOK_CUSTOM_REPORT_URL =
+  import.meta.env.VITE_WEBHOOK_CUSTOM_REPORT_URL || `${WEBHOOK_BASE_URL}/webhook/ondemand-report`;
 
 // ─── Frontend Audit Logs ────────────────────────────────────────────────────
 export const WEBHOOK_AUDIT_LOGS_URL =

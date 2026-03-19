@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface VeeamStatusData {
   status: string;
@@ -13,10 +14,27 @@ interface VeeamStatusData {
 interface DashboardVeeamStatusProps {
   data: VeeamStatusData[];
   loading?: boolean;
+  basePath?: string;
+  enableNavigation?: boolean;
+  onOpen?: () => void;
 }
 
-const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
+const DashboardVeeamStatus = ({
+  data,
+  loading,
+  basePath = "/dashboard",
+  enableNavigation = true,
+  onOpen,
+}: DashboardVeeamStatusProps) => {
   const navigate = useNavigate();
+
+  const handleOpen = () => {
+    if (onOpen) {
+      onOpen();
+      return;
+    }
+    navigate(`${basePath}/veeam`);
+  };
 
   if (loading) {
     return (
@@ -30,13 +48,16 @@ const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
     );
   }
 
-  const hasData = data.some(d => d.count > 0);
+  const hasData = data.some((d) => d.count > 0);
   const total = data.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <Card 
-      className="cyber-card p-6 bg-card/50 backdrop-blur border-border/50 hover:border-primary/30 transition-all cursor-pointer group"
-      onClick={() => navigate("/dashboard/veeam")}
+    <Card
+      className={cn(
+        "cyber-card p-6 bg-card/50 backdrop-blur border-border/50 transition-all",
+        enableNavigation && "hover:border-primary/30 cursor-pointer group"
+      )}
+      onClick={enableNavigation ? handleOpen : undefined}
     >
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -45,12 +66,14 @@ const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
           </div>
           <div>
             <h3 className="text-xl font-bold mb-1">Veeam VM Status</h3>
-            <p className="text-sm text-muted-foreground">Protection & power state overview</p>
+            <p className="text-sm text-muted-foreground">Protection and power state overview</p>
           </div>
         </div>
-        <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          Click to view details →
-        </span>
+        {enableNavigation && (
+          <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+            Click to view details -&gt;
+          </span>
+        )}
       </div>
 
       {hasData ? (
@@ -58,7 +81,7 @@ const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
-                data={data.filter(d => d.count > 0)}
+                data={data.filter((d) => d.count > 0)}
                 cx="50%"
                 cy="50%"
                 innerRadius={50}
@@ -67,9 +90,11 @@ const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
                 dataKey="count"
                 nameKey="status"
               >
-                {data.filter(d => d.count > 0).map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
-                ))}
+                {data
+                  .filter((d) => d.count > 0)
+                  .map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
+                  ))}
               </Pie>
               <Tooltip
                 contentStyle={{
@@ -87,25 +112,22 @@ const DashboardVeeamStatus = ({ data, loading }: DashboardVeeamStatusProps) => {
                 layout="horizontal"
                 align="center"
                 verticalAlign="bottom"
-                formatter={(value) => (
-                  <span className="text-xs text-muted-foreground">{value}</span>
-                )}
+                formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
               />
             </PieChart>
           </ResponsiveContainer>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {data.filter(d => d.count > 0).map((item) => (
-              <div key={item.status} className="flex items-center gap-2 p-2 rounded-lg bg-surface/30">
-                <div 
-                  className="w-3 h-3 rounded-full flex-shrink-0" 
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-xs text-muted-foreground truncate">
-                  {item.status}: <span className="font-medium text-foreground">{item.count}</span>
-                </span>
-              </div>
-            ))}
+            {data
+              .filter((d) => d.count > 0)
+              .map((item) => (
+                <div key={item.status} className="flex items-center gap-2 p-2 rounded-lg bg-surface/30">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {item.status}: <span className="font-medium text-foreground">{item.count}</span>
+                  </span>
+                </div>
+              ))}
           </div>
         </>
       ) : (

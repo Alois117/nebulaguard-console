@@ -13,6 +13,10 @@ interface HostData {
 interface DashboardTopHostsProps {
   data: HostData[];
   loading?: boolean;
+  basePath?: string;
+  enableNavigation?: boolean;
+  onHostClick?: (host: string) => void;
+  onViewAllClick?: () => void;
 }
 
 const severityStyles = {
@@ -22,11 +26,32 @@ const severityStyles = {
   average: "bg-muted/20 text-muted-foreground",
 };
 
-const DashboardTopHosts = ({ data, loading }: DashboardTopHostsProps) => {
+const DashboardTopHosts = ({
+  data,
+  loading,
+  basePath = "/dashboard",
+  enableNavigation = true,
+  onHostClick,
+  onViewAllClick,
+}: DashboardTopHostsProps) => {
   const navigate = useNavigate();
 
   const handleViewAlerts = (host: string) => {
-    navigate(`/dashboard/zabbix?host=${encodeURIComponent(host)}`);
+    if (!enableNavigation) return;
+    if (onHostClick) {
+      onHostClick(host);
+      return;
+    }
+    navigate(`${basePath}/zabbix?host=${encodeURIComponent(host)}`);
+  };
+
+  const handleViewAll = () => {
+    if (!enableNavigation) return;
+    if (onViewAllClick) {
+      onViewAllClick();
+      return;
+    }
+    navigate(`${basePath}/zabbix`);
   };
 
   if (loading) {
@@ -59,8 +84,11 @@ const DashboardTopHosts = ({ data, loading }: DashboardTopHostsProps) => {
           {data.map((item) => (
             <div
               key={item.host}
-              className="flex items-center justify-between p-4 rounded-lg bg-surface/50 border border-border/50 hover:border-primary/50 transition-all cursor-pointer group"
-              onClick={() => handleViewAlerts(item.host)}
+              className={cn(
+                "flex items-center justify-between p-4 rounded-lg bg-surface/50 border border-border/50 transition-all group",
+                enableNavigation ? "hover:border-primary/50 cursor-pointer" : "cursor-default"
+              )}
+              onClick={enableNavigation ? () => handleViewAlerts(item.host) : undefined}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
@@ -78,7 +106,12 @@ const DashboardTopHosts = ({ data, loading }: DashboardTopHostsProps) => {
                   </p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+              <ArrowRight
+                className={cn(
+                  "w-4 h-4 text-muted-foreground transition-all flex-shrink-0",
+                  enableNavigation && "group-hover:text-primary group-hover:translate-x-1"
+                )}
+              />
             </div>
           ))}
         </div>
@@ -89,12 +122,14 @@ const DashboardTopHosts = ({ data, loading }: DashboardTopHostsProps) => {
         </div>
       )}
 
-      <button
-        onClick={() => navigate("/dashboard/zabbix")}
-        className="w-full mt-4 py-2 px-4 rounded-lg bg-surface border border-border hover:border-primary text-sm font-medium transition-colors"
-      >
-        View All Hosts
-      </button>
+      {enableNavigation && (
+        <button
+          onClick={handleViewAll}
+          className="w-full mt-4 py-2 px-4 rounded-lg bg-surface border border-border hover:border-primary text-sm font-medium transition-colors"
+        >
+          View All Hosts
+        </button>
+      )}
     </Card>
   );
 };

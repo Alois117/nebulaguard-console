@@ -31,49 +31,65 @@ const iconVariantStyles = {
   purple: "bg-purple-500/20 text-purple-500",
 };
 
-const SummaryCard = ({ title, value, subtitle, icon: Icon, variant, onClick, loading }: SummaryCardProps) => (
-  <div
-    onClick={onClick}
-    className={cn(
-      "relative p-5 rounded-xl border bg-gradient-to-br cursor-pointer transition-all duration-300",
-      "hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
-      "group overflow-hidden",
-      variantStyles[variant]
-    )}
-  >
-    {/* Background glow effect */}
-    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-    
-    <div className="relative flex items-start justify-between">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-        {loading ? (
-          <div className="h-8 w-16 bg-muted/30 animate-pulse rounded" />
-        ) : (
-          <h3 className="text-3xl font-bold tracking-tight">{value}</h3>
-        )}
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        )}
+const SummaryCard = ({ title, value, subtitle, icon: Icon, variant, onClick, loading }: SummaryCardProps) => {
+  const clickable = typeof onClick === "function";
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "relative p-5 rounded-xl border bg-gradient-to-br transition-all duration-300",
+        clickable
+          ? "cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+          : "cursor-default",
+        "group overflow-hidden",
+        variantStyles[variant]
+      )}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      <div className="relative flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+          {loading ? (
+            <div className="h-8 w-16 bg-muted/30 animate-pulse rounded" />
+          ) : (
+            <h3 className="text-3xl font-bold tracking-tight">{value}</h3>
+          )}
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        </div>
+        <div
+          className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+            iconVariantStyles[variant]
+          )}
+        >
+          <Icon className="w-6 h-6" />
+        </div>
       </div>
-      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", iconVariantStyles[variant])}>
-        <Icon className="w-6 h-6" />
-      </div>
+
+      {clickable && (
+        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+          Click to view -&gt;
+        </div>
+      )}
     </div>
-    
-    {/* Click indicator */}
-    <div className="absolute bottom-2 right-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-      Click to view →
-    </div>
-  </div>
-);
+  );
+};
 
 interface DashboardSummaryCardsProps {
   summary: DashboardSummary;
   loading: boolean;
+  basePath?: string;
+  enableNavigation?: boolean;
 }
 
-const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps) => {
+const DashboardSummaryCards = ({
+  summary,
+  loading,
+  basePath = "/dashboard",
+  enableNavigation = true,
+}: DashboardSummaryCardsProps) => {
   const navigate = useNavigate();
 
   const cards: SummaryCardProps[] = [
@@ -83,7 +99,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.enabledHosts} enabled`,
       icon: Server,
       variant: "primary",
-      onClick: () => navigate("/dashboard/zabbix"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/zabbix`) : undefined,
       loading,
     },
     {
@@ -92,7 +108,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.criticalAlerts} critical`,
       icon: AlertTriangle,
       variant: summary.criticalAlerts > 0 ? "danger" : "warning",
-      onClick: () => navigate("/dashboard/zabbix"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/zabbix`) : undefined,
       loading,
     },
     {
@@ -101,7 +117,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.poweredOnVMs} powered on`,
       icon: Database,
       variant: "info",
-      onClick: () => navigate("/dashboard/veeam"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/veeam`) : undefined,
       loading,
     },
     {
@@ -110,7 +126,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.unprotectedVMs} unprotected`,
       icon: Shield,
       variant: summary.unprotectedVMs > 0 ? "warning" : "success",
-      onClick: () => navigate("/dashboard/veeam"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/veeam`) : undefined,
       loading,
     },
     {
@@ -119,7 +135,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.activeVeeamAlarms} active`,
       icon: ShieldOff,
       variant: summary.activeVeeamAlarms > 0 ? "danger" : "success",
-      onClick: () => navigate("/dashboard/veeam"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/veeam`) : undefined,
       loading,
     },
     {
@@ -128,7 +144,7 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.highPriorityInsights} high priority`,
       icon: Lightbulb,
       variant: "purple",
-      onClick: () => navigate("/dashboard/insights"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/insights`) : undefined,
       loading,
     },
     {
@@ -137,16 +153,19 @@ const DashboardSummaryCards = ({ summary, loading }: DashboardSummaryCardsProps)
       subtitle: `${summary.dailyReports} daily`,
       icon: FileText,
       variant: "info",
-      onClick: () => navigate("/dashboard/reports"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/reports`) : undefined,
       loading,
     },
     {
       title: "System Health",
       value: summary.unprotectedVMs === 0 && summary.criticalAlerts === 0 ? "Healthy" : "Issues",
-      subtitle: summary.acknowledgedAlerts > 0 ? `${summary.acknowledgedAlerts} acknowledged` : "All systems monitored",
+      subtitle:
+        summary.acknowledgedAlerts > 0
+          ? `${summary.acknowledgedAlerts} acknowledged`
+          : "All systems monitored",
       icon: Activity,
       variant: summary.unprotectedVMs === 0 && summary.criticalAlerts === 0 ? "success" : "warning",
-      onClick: () => navigate("/dashboard/zabbix"),
+      onClick: enableNavigation ? () => navigate(`${basePath}/zabbix`) : undefined,
       loading,
     },
   ];

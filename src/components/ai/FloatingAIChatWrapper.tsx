@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import FloatingAIChat from "./FloatingAIChat";
+import FloatingFeedback from "@/components/feedback/FloatingFeedback";
 
 /**
  * Route-aware wrapper for the Floating AI Chat component.
@@ -15,7 +16,7 @@ const FloatingAIChatWrapper = () => {
   const location = useLocation();
 
   // Define routes where the AI Assistant should be hidden
-const excludedRoutes = ["/", "/login", "/signup", "/terms-of-use", "/privacy-policy"];
+const excludedRoutes = ["/", "/login", "/signup", "/terms-of-use", "/privacy-policy", "/NotFound"];
 
   // Check if current path matches any excluded route
   const shouldHide = excludedRoutes.includes(location.pathname);
@@ -25,7 +26,12 @@ const excludedRoutes = ["/", "/login", "/signup", "/terms-of-use", "/privacy-pol
     return null;
   }
 
-  return <FloatingAIChat />;
+  return (
+    <>
+      <FloatingFeedback />
+      <FloatingAIChat />
+    </>
+  );
 };
 
 export default FloatingAIChatWrapper;

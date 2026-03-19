@@ -25,10 +25,13 @@ export interface DecodedToken extends JwtPayload {
  * Returns null if decoding fails (invalid format, malformed, etc.).
  */
 export const decodeToken = (token: string): DecodedToken | null => {
+  if (!token || typeof token !== "string" || token.split(".").length !== 3) {
+    return null;
+  }
+
   try {
     return jwtDecode<DecodedToken>(token);
-  } catch (error) {
-    console.error('Failed to decode token:', error);
+  } catch {
     return null;
   }
 };

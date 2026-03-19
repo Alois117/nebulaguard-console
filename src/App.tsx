@@ -32,7 +32,7 @@ import UserDashboard from "./pages/user/UserDashboard";
 import UserZabbix from "./pages/user/UserZabbix";
 import UserHostDetail from "./pages/user/UserHostDetail";
 import UserVeeam from "./pages/user/UserVeeam";
-import UserTraps from "./pages/user/UserTraps";
+
 import UserInsights from "./pages/user/UserInsights";
 import UserReports from "./pages/user/UserReports";
 import UserSettings from "./pages/user/UserSettings";
@@ -44,11 +44,17 @@ import Billing from "./pages/org-admin/Billing";
 import UsageMeters from "./pages/org-admin/UsageMeters";
 import AlertConfiguration from "./pages/org-admin/AlertConfiguration";
 import OnCallSchedules from "./pages/org-admin/OnCallSchedules";
-import ZabbixHosts from "./pages/org-admin/ZabbixHosts";
-import Zabbix from "./pages/org-admin/Zabbix";
 import MaintenanceWindows from "./pages/org-admin/MaintenanceWindows";
 import AISettings from "./pages/org-admin/AISettings";
 import OrgAdminSettings from "./pages/org-admin/OrgAdminSettings";
+
+// Org Admin Monitoring Pages (shared monitoring views)
+import MonitoringOverview from "./pages/org-admin/monitoring/MonitoringOverview";
+import MonitoringZabbix from "./pages/org-admin/monitoring/MonitoringZabbix";
+import MonitoringVeeam from "./pages/org-admin/monitoring/MonitoringVeeam";
+import MonitoringInsights from "./pages/org-admin/monitoring/MonitoringInsights";
+import MonitoringReports from "./pages/org-admin/monitoring/MonitoringReports";
+import MonitoringHostDetail from "./pages/org-admin/monitoring/MonitoringHostDetail";
 
 // Super Admin Pages
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
@@ -89,27 +95,37 @@ const App = () => (
 
               {/* Protected Routes */}
               <Route element={<OrganizationProvider />}>
+                {/* User Dashboard Routes */}
                 <Route path="/dashboard" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserDashboard /></ProtectedRoute>} />
                 <Route path="/dashboard/zabbix" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserZabbix /></ProtectedRoute>} />
                 <Route path="/dashboard/hosts/:id" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserHostDetail /></ProtectedRoute>} />
                 <Route path="/dashboard/veeam" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserVeeam /></ProtectedRoute>} />
-                <Route path="/dashboard/traps" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserTraps /></ProtectedRoute>} />
+                
                 <Route path="/dashboard/insights" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserInsights /></ProtectedRoute>} />
                 <Route path="/dashboard/reports" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserReports /></ProtectedRoute>} />
                 <Route path="/dashboard/settings" element={<ProtectedRoute requiredRole="user" redirectTo="/auth/callback"><UserSettings /></ProtectedRoute>} />
 
+                {/* Org Admin Routes - Administration */}
                 <Route path="/admin" element={<ProtectedRoute requiredRole="org_admin"><OrgAdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/users" element={<ProtectedRoute requiredRole="org_admin"><UserManagement /></ProtectedRoute>} />
                 <Route path="/admin/billing" element={<ProtectedRoute requiredRole="org_admin"><Billing /></ProtectedRoute>} />
                 <Route path="/admin/usage" element={<ProtectedRoute requiredRole="org_admin"><UsageMeters /></ProtectedRoute>} />
                 <Route path="/admin/alerts" element={<ProtectedRoute requiredRole="org_admin"><AlertConfiguration /></ProtectedRoute>} />
                 <Route path="/admin/oncall" element={<ProtectedRoute requiredRole="org_admin"><OnCallSchedules /></ProtectedRoute>} />
-                <Route path="/admin/zabbix-monitoring" element={<ProtectedRoute requiredRole="org_admin"><Zabbix /></ProtectedRoute>} />
-                <Route path="/admin/zabbix" element={<ProtectedRoute requiredRole="org_admin"><ZabbixHosts /></ProtectedRoute>} />
                 <Route path="/admin/maintenance" element={<ProtectedRoute requiredRole="org_admin"><MaintenanceWindows /></ProtectedRoute>} />
                 <Route path="/admin/ai" element={<ProtectedRoute requiredRole="org_admin"><AISettings /></ProtectedRoute>} />
                 <Route path="/admin/settings" element={<ProtectedRoute requiredRole="org_admin"><OrgAdminSettings /></ProtectedRoute>} />
 
+                {/* Org Admin Routes - Monitoring (shared views) */}
+                <Route path="/admin/monitoring" element={<ProtectedRoute requiredRole="org_admin"><MonitoringOverview /></ProtectedRoute>} />
+                <Route path="/admin/monitoring/zabbix" element={<ProtectedRoute requiredRole="org_admin"><MonitoringZabbix /></ProtectedRoute>} />
+                <Route path="/admin/monitoring/veeam" element={<ProtectedRoute requiredRole="org_admin"><MonitoringVeeam /></ProtectedRoute>} />
+                <Route path="/admin/monitoring/insights" element={<ProtectedRoute requiredRole="org_admin"><MonitoringInsights /></ProtectedRoute>} />
+                <Route path="/admin/monitoring/reports" element={<ProtectedRoute requiredRole="org_admin"><MonitoringReports /></ProtectedRoute>} />
+                
+                <Route path="/admin/monitoring/hosts/:id" element={<ProtectedRoute requiredRole="org_admin"><MonitoringHostDetail /></ProtectedRoute>} />
+
+                {/* Super Admin Routes */}
                 <Route path="/super-admin" element={<ProtectedRoute requiredRole="super_admin"><SuperAdminDashboard /></ProtectedRoute>} />
                 <Route path="/super-admin/organizations" element={<ProtectedRoute requiredRole="super_admin"><Organizations /></ProtectedRoute>} />
                 <Route path="/super-admin/analytics" element={<ProtectedRoute requiredRole="super_admin"><GlobalAnalytics /></ProtectedRoute>} />

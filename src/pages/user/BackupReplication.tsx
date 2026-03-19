@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,58 +40,54 @@ import {
 } from "lucide-react";
 
 import type {
+  AlertItem,
+  MultiVmJob,
+  OrphanJob,
   Job,
   MatchedVm,
-  UnprotectedVm,
-  OrphanJob,
-  MultiVmJob,
   Replica,
+  UnprotectedVm,
   ChangedJob,
 } from "@/pages/user/backup-replication/types";
 import { formatDateTime } from "@/pages/user/backup-replication/utils/format";
-import { usePagination } from "@/pages/user/backup-replication/hooks/usePagination";
 import StatusBadge from "@/pages/user/backup-replication/components/shared/StatusBadge";
 import TablePagination from "@/pages/user/backup-replication/components/shared/TablePagination";
 import VmDrawer from "@/pages/user/backup-replication/components/VmDrawer";
 import JobDetailDrawer from "@/pages/user/backup-replication/components/JobDetailDrawer";
 import ChangeActivityDrawer from "@/pages/user/backup-replication/components/ChangeActivityDrawer";
-import { useAuthenticatedFetch } from "@/keycloak/hooks/useAuthenticatedFetch";
-import { WEBHOOK_BACKUP_REPLICATION_URL } from "@/config/env";
-import { safeParseResponse } from "@/lib/safeFetch";
+import { usePagination } from "@/pages/user/backup-replication/hooks/usePagination";
+import { useTableFilter } from "@/pages/user/backup-replication/hooks/useTableFilter";
+import useBackupReplicationViewModel, {
+  type BackupReplicationExternalData,
+} from "@/hooks/useBackupReplicationViewModel";
 
-const ENDPOINT = WEBHOOK_BACKUP_REPLICATION_URL;
+interface BackupReplicationProps {
+  externalData?: BackupReplicationExternalData;
+}
 
-type Status = "idle" | "loading" | "success" | "error";
-
-type MainObject = {
-  summary?: any;
-  matched?: MatchedVm[];
-  alerts?: any;
-  statistics?: any;
-  vmsWithoutJobs?: UnprotectedVm[];
-  jobsWithoutVMs?: OrphanJob[];
-  multiVMJobs?: MultiVmJob[];
-  replicas?: Replica[];
-};
-
-type MetaObject = {
-  changes?: any;
-  summary?: any;
-};
+export type { BackupReplicationExternalData };
 
 function safeLower(v: unknown) {
   return String(v ?? "").toLowerCase();
 }
 
-function backupCurrentBadge(backupCurrent?: boolean) {
-  if (backupCurrent === true) return { label: "Current", variant: "default" as const };
-  if (backupCurrent === false) return { label: "Not Current", variant: "secondary" as const };
-  return { label: "—", variant: "secondary" as const };
-}
-
 function formatCount(v: unknown) {
   const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n.toLocaleString() : "—";
+  return Number.isFinite(n) ? n.toLocaleString() : "â€”";
+}
+
+function useFilteredTabData<T>(data: T[], searchFields: string[]) {
+  const table = useTableFilter(data, { searchFields });
+  const pagination = usePagination(table.filteredData, { defaultPageSize: 10 });
+
+  useEffect(() => {
+    pagination.setCurrentPage(1);
+  }, [table.searchQuery, table.filters, pagination.setCurrentPage]);
+
+  return {
+    ...table,
+    pagination,
+  };
 }
 
 // ================== Summary Card Components ==================
@@ -176,11 +172,34 @@ function ChangeSummaryCard({
 
 // ================== Main Component ==================
 
-const BackupReplication = () => {
-  const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [raw, setRaw] = useState<unknown>(null);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+const BackupReplication = ({ externalData }: BackupReplicationProps) => {
+  const {
+    status,
+    loading,
+    error,
+    lastUpdatedAt,
+    showNoDataBanner,
+    summary,
+    vmCounts,
+    matched,
+    alerts,
+    vmsWithoutJobs,
+    jobsWithoutVMs,
+    multiVMJobs,
+    replicas,
+    changes,
+    changeSummary,
+    filteredMatched,
+    query,
+    setQuery,
+    protectedFilter,
+    setProtectedFilter,
+    statusFilter,
+    setStatusFilter,
+    powerStateFilter,
+    setPowerStateFilter,
+    vmPagination,
+  } = useBackupReplicationViewModel({ externalData });
 
   // Drawer states
   const [selectedVm, setSelectedVm] = useState<MatchedVm | null>(null);
@@ -191,147 +210,6 @@ const BackupReplication = () => {
 
   // Current view tab
   const [activeView, setActiveView] = useState("protected");
-
-  const loading = status === "loading";
-  const { authenticatedFetch } = useAuthenticatedFetch();
-
-  // Track whether we have ever successfully loaded data,
-  // so silent refresh failures don't flip UI to error state.
-  const hasLoadedOnceRef = useRef(false);
-
-  const refresh = useCallback(
-    async (isSilent = false) => {
-      if (!isSilent) setStatus("loading");
-      if (!isSilent) setError(null);
-
-      try {
-        const res = await authenticatedFetch(ENDPOINT, {
-          method: "POST",
-          headers: { Accept: "application/json" },
-        });
-
-        // Centralized safe parsing (NO res.json() directly)
-        const result = await safeParseResponse<unknown>(res, ENDPOINT);
-
-        if (!result.ok) {
-          // Console-only technical details (safeParseResponse should already be sanitizing)
-          console.error("[BackupReplication] Fetch error:", {
-            endpoint: ENDPOINT,
-            status: result.status,
-            userMessage: result.userMessage,
-            debug: (result as any).debug,
-            errorId: (result as any).errorId,
-          });
-
-          // On silent refresh, do not wipe UI state if we've already loaded once
-          if (isSilent && hasLoadedOnceRef.current) return;
-
-          setError(result.userMessage || "We couldn't load backup & replication data. Please try again.");
-          setStatus("error");
-          return;
-        }
-
-        // If webhook returns nothing / empty body, treat as "no data yet"
-        if (!result.data) {
-          setRaw(null);
-          setLastUpdatedAt(new Date());
-          setStatus("success");
-          setError(null);
-          hasLoadedOnceRef.current = true;
-          return;
-        }
-
-        setRaw(result.data);
-        setLastUpdatedAt(new Date());
-        setStatus("success");
-        setError(null);
-        hasLoadedOnceRef.current = true;
-      } catch (e: unknown) {
-        // Network errors or unexpected exceptions
-        console.error("[BackupReplication] Unexpected fetch exception:", e);
-
-        if (isSilent && hasLoadedOnceRef.current) return;
-
-        setError("We couldn't load backup & replication data. Please try again.");
-        setStatus("error");
-      }
-    },
-    [authenticatedFetch]
-  );
-
-  useEffect(() => {
-    refresh(false);
-    const interval = setInterval(() => refresh(true), 5000);
-    return () => clearInterval(interval);
-  }, [refresh]);
-
-  // Search & filter state
-  const [query, setQuery] = useState("");
-  const [protectedFilter, setProtectedFilter] = useState<"all" | "protected" | "unprotected">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "warning" | "stale">("all");
-  const [powerStateFilter, setPowerStateFilter] = useState<"all" | "running" | "off">("all");
-
-  // Parse API response
-  const { main, meta } = useMemo<{ main: MainObject; meta: MetaObject }>(() => {
-    const arr = Array.isArray(raw) ? (raw as unknown[]) : null;
-    const mainObj = (arr?.[0] ?? {}) as MainObject;
-    const metaObj = (arr?.[1] ?? {}) as MetaObject;
-    return { main: mainObj, meta: metaObj };
-  }, [raw]);
-
-  const summary = main?.summary ?? null;
-  const matched = (main?.matched ?? []) as MatchedVm[];
-  const alerts = main?.alerts ?? null;
-  const vmsWithoutJobs = main?.vmsWithoutJobs ?? [];
-  const jobsWithoutVMs = main?.jobsWithoutVMs ?? [];
-  const multiVMJobs = main?.multiVMJobs ?? [];
-  const replicas = main?.replicas ?? [];
-  const changes = meta?.changes ?? null;
-  const changeSummary = meta?.summary ?? null;
-
-  // Filter matched VMs
-  const filteredMatched = useMemo<MatchedVm[]>(() => {
-    const q = query.trim().toLowerCase();
-    let list = (matched ?? []).filter(Boolean);
-
-    if (q) {
-      list = list.filter(
-        (m) => safeLower(m.vm?.name).includes(q) || safeLower(m.vm?.guestOs).includes(q)
-      );
-    }
-
-    if (protectedFilter !== "all") {
-      list = list.filter((m) =>
-        protectedFilter === "protected" ? m.vm?.isProtected : !m.vm?.isProtected
-      );
-    }
-
-    if (statusFilter !== "all") {
-      list = list.filter((m) => {
-        const s = safeLower(m.protectionSummary?.overallStatus);
-        if (statusFilter === "success") return s.includes("success");
-        if (statusFilter === "warning") return s.includes("warn");
-        return s.includes("stale");
-      });
-    }
-
-    if (powerStateFilter !== "all") {
-      list = list.filter((m) => {
-        const ps = safeLower(m.vm?.powerState);
-        if (powerStateFilter === "running") return ps.includes("run") || ps.includes("on");
-        return ps.includes("off") || ps.includes("stopped");
-      });
-    }
-
-    return list;
-  }, [matched, query, protectedFilter, statusFilter, powerStateFilter]);
-
-  // Pagination
-  const vmPagination = usePagination(filteredMatched, { defaultPageSize: 10 });
-
-  useEffect(() => {
-    vmPagination.setCurrentPage(1);
-  }, [query, protectedFilter, statusFilter, powerStateFilter]);
 
   // Handle clicks
   const handleVmClick = (vm: MatchedVm) => {
@@ -376,7 +254,81 @@ const BackupReplication = () => {
     setJobDrawerOpen(true);
   };
 
-  const showNoDataBanner = !loading && !error && !raw;
+  const unprotectedTable = useFilteredTabData<UnprotectedVm>(vmsWithoutJobs, ["name", "guestOs"]);
+  const orphanTable = useFilteredTabData<OrphanJob>(jobsWithoutVMs, ["jobName", "platform"]);
+  const multiVmTable = useFilteredTabData<MultiVmJob>(multiVMJobs, ["jobName", "platform"]);
+  const replicasTable = useFilteredTabData<Replica>(replicas, ["name", "sourceVm", "target"]);
+
+  const alertItems = useMemo<AlertItem[]>(() => {
+    const criticalItems = Array.isArray(alerts?.critical) ? alerts.critical : [];
+    const warningItems = Array.isArray(alerts?.warnings) ? alerts.warnings : [];
+
+    return [
+      ...criticalItems.map((alert, index) => ({
+        ...(alert as AlertItem),
+        id: String((alert as AlertItem)?.id ?? `critical-${index}`),
+        severity: "critical" as const,
+      })),
+      ...warningItems.map((alert, index) => ({
+        ...(alert as AlertItem),
+        id: String((alert as AlertItem)?.id ?? `warning-${index}`),
+        severity: "warning" as const,
+      })),
+    ];
+  }, [alerts]);
+
+  const alertsTable = useTableFilter(alertItems, {
+    searchFields: ["message", "relatedVm", "relatedJob"],
+  });
+
+  const sortedFilteredAlerts = useMemo(() => {
+    const severityOrder = { critical: 0, warning: 1, info: 2 };
+
+    return [...alertsTable.filteredData].sort((left, right) => {
+      const severityDiff =
+        (severityOrder[left.severity] ?? 2) - (severityOrder[right.severity] ?? 2);
+
+      if (severityDiff !== 0) return severityDiff;
+
+      return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
+    });
+  }, [alertsTable.filteredData]);
+
+  const alertsPagination = usePagination(sortedFilteredAlerts, { defaultPageSize: 10 });
+
+  useEffect(() => {
+    alertsPagination.setCurrentPage(1);
+  }, [alertsTable.searchQuery, alertsTable.filters, alertsPagination.setCurrentPage]);
+
+  const unprotectedPowerStates = useMemo(
+    () => Array.from(new Set(vmsWithoutJobs.map((vm) => vm.powerState).filter(Boolean))),
+    [vmsWithoutJobs]
+  );
+  const orphanJobTypes = useMemo(
+    () => Array.from(new Set(jobsWithoutVMs.map((job) => job.jobType).filter(Boolean))),
+    [jobsWithoutVMs]
+  );
+  const orphanPlatforms = useMemo(
+    () => Array.from(new Set(jobsWithoutVMs.map((job) => job.platform).filter(Boolean))),
+    [jobsWithoutVMs]
+  );
+  const multiVmJobTypes = useMemo(
+    () => Array.from(new Set(multiVMJobs.map((job) => job.jobType).filter(Boolean))),
+    [multiVMJobs]
+  );
+  const multiVmStatuses = useMemo(
+    () => Array.from(new Set(multiVMJobs.map((job) => job.status).filter(Boolean))),
+    [multiVMJobs]
+  );
+  const replicaStatuses = useMemo(
+    () => Array.from(new Set(replicas.map((replica) => replica.status).filter(Boolean))),
+    [replicas]
+  );
+
+  const paginatedAlerts = alertsPagination.paginatedData;
+  const paginatedCriticalAlerts = paginatedAlerts.filter((alert) => alert.severity === "critical");
+  const paginatedWarningAlerts = paginatedAlerts.filter((alert) => alert.severity === "warning");
+  const totalAlertCount = alertItems.length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -405,7 +357,7 @@ const BackupReplication = () => {
         <div />
       </div>
 
-      {/* Friendly “no data yet” banner when webhook returns empty */}
+      {/* Friendly â€œno data yetâ€ banner when webhook returns empty */}
       {showNoDataBanner && (
         <div className="rounded-lg border border-border bg-muted/20 p-4">
           <div className="text-sm text-muted-foreground">
@@ -418,19 +370,19 @@ const BackupReplication = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
         <SummaryCard
           title="Total VMs"
-          value={formatCount(summary?.overview?.totalVMs ?? matched.length)}
+          value={formatCount(vmCounts.totalVMs)}
           icon={Server}
           variant="info"
         />
         <SummaryCard
           title="Protected VMs"
-          value={formatCount(summary?.protection?.protectedVMs ?? matched.filter((m) => m.vm?.isProtected).length)}
+          value={formatCount(vmCounts.protectedVMs)}
           icon={Shield}
           variant="success"
         />
         <SummaryCard
           title="Unprotected VMs"
-          value={formatCount(summary?.protection?.unprotectedVMs ?? vmsWithoutJobs.length)}
+          value={formatCount(vmCounts.unprotectedVMs)}
           icon={ShieldOff}
           variant="danger"
         />
@@ -448,7 +400,7 @@ const BackupReplication = () => {
         />
         <SummaryCard
           title="Active Alerts"
-          value={formatCount((alerts?.warnings?.length ?? 0) + (alerts?.critical?.length ?? 0))}
+          value={formatCount(totalAlertCount)}
           icon={Bell}
           variant={(alerts?.critical?.length ?? 0) > 0 ? "danger" : "warning"}
         />
@@ -466,11 +418,11 @@ const BackupReplication = () => {
         <TabsList className="w-full justify-start bg-muted/30 p-1 mb-4">
           <TabsTrigger value="protected" className="gap-2">
             <Shield className="h-4 w-4" />
-            Protected VMs ({matched.length})
+            Protected VMs ({vmCounts.protectedVMs})
           </TabsTrigger>
           <TabsTrigger value="unprotected" className="gap-2">
             <ShieldOff className="h-4 w-4" />
-            Unprotected ({vmsWithoutJobs.length})
+            Unprotected ({vmCounts.unprotectedVMs})
           </TabsTrigger>
           <TabsTrigger value="orphan" className="gap-2">
             <AlertCircle className="h-4 w-4" />
@@ -486,14 +438,14 @@ const BackupReplication = () => {
           </TabsTrigger>
           <TabsTrigger value="alerts" className="gap-2">
             <Bell className="h-4 w-4" />
-            Alerts ({(alerts?.warnings?.length ?? 0) + (alerts?.critical?.length ?? 0)})
+            Alerts ({totalAlertCount})
           </TabsTrigger>
         </TabsList>
 
         {/* Protected VMs Tab */}
         <TabsContent value="protected" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold">VM Protection Table</h2>
                 <p className="text-sm text-muted-foreground">
@@ -501,14 +453,14 @@ const BackupReplication = () => {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
                 <div className="relative">
                   <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search VM name or OS…"
-                    className="pl-9 w-[200px] bg-muted/30"
+                    placeholder="Search VM name or OSâ€¦"
+                    className="pl-9 w-[180px] xl:w-[220px] bg-muted/30"
                   />
                 </div>
 
@@ -516,7 +468,7 @@ const BackupReplication = () => {
                   value={powerStateFilter}
                   onValueChange={(v: "all" | "running" | "off") => setPowerStateFilter(v)}
                 >
-                  <SelectTrigger className="w-[130px] bg-muted/30">
+                  <SelectTrigger className="w-[120px] xl:w-[130px] bg-muted/30">
                     <SelectValue placeholder="Power State" />
                   </SelectTrigger>
                   <SelectContent>
@@ -530,7 +482,7 @@ const BackupReplication = () => {
                   value={protectedFilter}
                   onValueChange={(v: "all" | "protected" | "unprotected") => setProtectedFilter(v)}
                 >
-                  <SelectTrigger className="w-[140px] bg-muted/30">
+                  <SelectTrigger className="w-[120px] xl:w-[140px] bg-muted/30">
                     <SelectValue placeholder="Protection" />
                   </SelectTrigger>
                   <SelectContent>
@@ -544,7 +496,7 @@ const BackupReplication = () => {
                   value={statusFilter}
                   onValueChange={(v: "all" | "success" | "warning" | "stale") => setStatusFilter(v)}
                 >
-                  <SelectTrigger className="w-[130px] bg-muted/30">
+                  <SelectTrigger className="w-[120px] xl:w-[130px] bg-muted/30">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -571,7 +523,7 @@ const BackupReplication = () => {
 
             {loading && (
               <div className="text-sm text-muted-foreground py-10 text-center">
-                Loading backup & replication data…
+                Loading backup & replication dataâ€¦
               </div>
             )}
 
@@ -582,27 +534,24 @@ const BackupReplication = () => {
                     <TableHeader>
                       <TableRow className="bg-muted/30">
                         <TableHead>VM Name</TableHead>
-                        <TableHead>Power State</TableHead>
+                        <TableHead className="whitespace-nowrap">Power State</TableHead>
                         <TableHead>OS</TableHead>
                         <TableHead>Protected</TableHead>
                         <TableHead>Overall Status</TableHead>
                         <TableHead className="text-right">Jobs Count</TableHead>
-                        <TableHead>Backup Current</TableHead>
                         <TableHead>Last Protected</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {vmPagination.paginatedData.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                          <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                             No VMs found
                           </TableCell>
                         </TableRow>
                       ) : (
                         vmPagination.paginatedData.map((item) => {
-                          const vmName = item.vm?.name ?? "—";
-                          const backupCurrent = backupCurrentBadge(item.protectionSummary?.backupCurrent);
-
+                          const vmName = item.vm?.name ?? "â€”";
                           return (
                             <TableRow
                               key={vmName}
@@ -613,16 +562,17 @@ const BackupReplication = () => {
                               <TableCell>
                                 <Badge
                                   variant={
-                                    safeLower(item.vm?.powerState).includes("run")
+                                    safeLower(item.vm?.powerState).includes("run") ||
+                                    safeLower(item.vm?.powerState).includes("on")
                                       ? "default"
                                       : "secondary"
                                   }
                                 >
-                                  {item.vm?.powerState ?? "—"}
+                                  {item.vm?.powerState ?? "â€”"}
                                 </Badge>
                               </TableCell>
                               <TableCell className="max-w-[200px] truncate" title={item.vm?.guestOs}>
-                                {item.vm?.guestOs ?? "—"}
+                                {item.vm?.guestOs ?? "â€”"}
                               </TableCell>
                               <TableCell>
                                 <Badge variant={item.vm?.isProtected ? "default" : "destructive"}>
@@ -634,9 +584,6 @@ const BackupReplication = () => {
                               </TableCell>
                               <TableCell className="text-right font-medium">
                                 {item.protectionSummary?.totalJobs ?? item.jobs?.length ?? 0}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={backupCurrent.variant}>{backupCurrent.label}</Badge>
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {formatDateTime(item.vm?.lastProtectedDate)}
@@ -675,30 +622,80 @@ const BackupReplication = () => {
         {/* Unprotected VMs */}
         <TabsContent value="unprotected" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <h2 className="text-lg font-semibold mb-4">Unprotected VMs</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Unprotected VMs</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review discovered VMs without mapped backup jobs
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={unprotectedTable.searchQuery}
+                    onChange={(e) => unprotectedTable.setSearchQuery(e.target.value)}
+                    placeholder="Search VM name or OS..."
+                    className="pl-9 w-[180px] xl:w-[220px] bg-muted/30"
+                  />
+                </div>
+
+                <Select
+                  value={unprotectedTable.filters.powerState ?? "all"}
+                  onValueChange={(value) => unprotectedTable.setFilter("powerState", value)}
+                >
+                  <SelectTrigger className="w-[140px] xl:w-[160px] bg-muted/30">
+                    <SelectValue placeholder="Power State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All States</SelectItem>
+                    {unprotectedPowerStates.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
                     <TableHead>VM Name</TableHead>
-                    <TableHead>Power State</TableHead>
+                    <TableHead className="whitespace-nowrap">Power State</TableHead>
                     <TableHead>OS</TableHead>
                     <TableHead>Last Seen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vmsWithoutJobs.length === 0 ? (
+                  {unprotectedTable.pagination.paginatedData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                        No unprotected VMs
+                        {vmsWithoutJobs.length === 0
+                          ? "No unprotected VMs"
+                          : "No unprotected VMs match your filters"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    vmsWithoutJobs.map((vm) => (
-                      <TableRow key={vm.name} className="hover:bg-muted/30">
+                    unprotectedTable.pagination.paginatedData.map((vm) => (
+                      <TableRow key={`${vm.name}-${vm.lastSeen ?? "unknown"}`} className="hover:bg-muted/30">
                         <TableCell className="font-medium">{vm.name}</TableCell>
-                        <TableCell>{vm.powerState ?? "—"}</TableCell>
-                        <TableCell>{vm.guestOs ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              safeLower(vm.powerState).includes("run") ||
+                              safeLower(vm.powerState).includes("on")
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {vm.powerState ?? "--"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{vm.guestOs ?? "--"}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDateTime(vm.lastSeen)}
                         </TableCell>
@@ -708,13 +705,86 @@ const BackupReplication = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {unprotectedTable.filteredData.length > 0 && (
+              <TablePagination
+                currentPage={unprotectedTable.pagination.currentPage}
+                totalPages={unprotectedTable.pagination.totalPages}
+                totalItems={unprotectedTable.pagination.totalItems}
+                startIndex={unprotectedTable.pagination.startIndex}
+                endIndex={unprotectedTable.pagination.endIndex}
+                pageSize={unprotectedTable.pagination.pageSize}
+                onPageChange={unprotectedTable.pagination.setCurrentPage}
+                onPageSizeChange={unprotectedTable.pagination.setPageSize}
+                canGoNext={unprotectedTable.pagination.canGoNext}
+                canGoPrevious={unprotectedTable.pagination.canGoPrevious}
+                onFirstPage={unprotectedTable.pagination.goToFirstPage}
+                onLastPage={unprotectedTable.pagination.goToLastPage}
+                onNextPage={unprotectedTable.pagination.goToNextPage}
+                onPreviousPage={unprotectedTable.pagination.goToPreviousPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
         {/* Orphan Jobs */}
         <TabsContent value="orphan" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <h2 className="text-lg font-semibold mb-4">Orphan Jobs (Jobs Without VMs)</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Orphan Jobs (Jobs Without VMs)</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review jobs that are no longer linked to discovered VMs
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={orphanTable.searchQuery}
+                    onChange={(e) => orphanTable.setSearchQuery(e.target.value)}
+                    placeholder="Search job name or platform..."
+                    className="pl-9 w-[200px] xl:w-[240px] bg-muted/30"
+                  />
+                </div>
+
+                <Select
+                  value={orphanTable.filters.jobType ?? "all"}
+                  onValueChange={(value) => orphanTable.setFilter("jobType", value)}
+                >
+                  <SelectTrigger className="w-[130px] xl:w-[150px] bg-muted/30">
+                    <SelectValue placeholder="Job Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {orphanJobTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={orphanTable.filters.platform ?? "all"}
+                  onValueChange={(value) => orphanTable.setFilter("platform", value)}
+                >
+                  <SelectTrigger className="w-[130px] xl:w-[150px] bg-muted/30">
+                    <SelectValue placeholder="Platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Platforms</SelectItem>
+                    {orphanPlatforms.map((platform) => (
+                      <SelectItem key={platform} value={platform}>
+                        {platform}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -728,19 +798,21 @@ const BackupReplication = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {jobsWithoutVMs.length === 0 ? (
+                  {orphanTable.pagination.paginatedData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                        No orphan jobs
+                        {jobsWithoutVMs.length === 0
+                          ? "No orphan jobs"
+                          : "No orphan jobs match your filters"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    jobsWithoutVMs.map((job) => (
-                      <TableRow key={job.jobName} className="hover:bg-muted/30">
+                    orphanTable.pagination.paginatedData.map((job, index) => (
+                      <TableRow key={`${job.jobName}-${index}`} className="hover:bg-muted/30">
                         <TableCell className="font-medium">{job.jobName}</TableCell>
-                        <TableCell>{job.jobType ?? "—"}</TableCell>
-                        <TableCell>{job.platform ?? "—"}</TableCell>
-                        <TableCell>{job.schedule ?? "—"}</TableCell>
+                        <TableCell>{job.jobType ?? "--"}</TableCell>
+                        <TableCell>{job.platform ?? "--"}</TableCell>
+                        <TableCell>{job.schedule ?? "--"}</TableCell>
                         <TableCell>
                           <StatusBadge status={job.status} size="sm" />
                         </TableCell>
@@ -753,13 +825,86 @@ const BackupReplication = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {orphanTable.filteredData.length > 0 && (
+              <TablePagination
+                currentPage={orphanTable.pagination.currentPage}
+                totalPages={orphanTable.pagination.totalPages}
+                totalItems={orphanTable.pagination.totalItems}
+                startIndex={orphanTable.pagination.startIndex}
+                endIndex={orphanTable.pagination.endIndex}
+                pageSize={orphanTable.pagination.pageSize}
+                onPageChange={orphanTable.pagination.setCurrentPage}
+                onPageSizeChange={orphanTable.pagination.setPageSize}
+                canGoNext={orphanTable.pagination.canGoNext}
+                canGoPrevious={orphanTable.pagination.canGoPrevious}
+                onFirstPage={orphanTable.pagination.goToFirstPage}
+                onLastPage={orphanTable.pagination.goToLastPage}
+                onNextPage={orphanTable.pagination.goToNextPage}
+                onPreviousPage={orphanTable.pagination.goToPreviousPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
         {/* Multi-VM Jobs */}
         <TabsContent value="multivm" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <h2 className="text-lg font-semibold mb-4">Multi-VM Jobs</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Multi-VM Jobs</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review jobs protecting more than one VM
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={multiVmTable.searchQuery}
+                    onChange={(e) => multiVmTable.setSearchQuery(e.target.value)}
+                    placeholder="Search job name or platform..."
+                    className="pl-9 w-[200px] xl:w-[240px] bg-muted/30"
+                  />
+                </div>
+
+                <Select
+                  value={multiVmTable.filters.jobType ?? "all"}
+                  onValueChange={(value) => multiVmTable.setFilter("jobType", value)}
+                >
+                  <SelectTrigger className="w-[130px] xl:w-[150px] bg-muted/30">
+                    <SelectValue placeholder="Job Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {multiVmJobTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={multiVmTable.filters.status ?? "all"}
+                  onValueChange={(value) => multiVmTable.setFilter("status", value)}
+                >
+                  <SelectTrigger className="w-[130px] xl:w-[150px] bg-muted/30">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {multiVmStatuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -773,18 +918,20 @@ const BackupReplication = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {multiVMJobs.length === 0 ? (
+                  {multiVmTable.pagination.paginatedData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                        No multi-VM jobs
+                        {multiVMJobs.length === 0
+                          ? "No multi-VM jobs"
+                          : "No multi-VM jobs match your filters"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    multiVMJobs.map((job) => (
-                      <TableRow key={job.jobName} className="hover:bg-muted/30">
+                    multiVmTable.pagination.paginatedData.map((job, index) => (
+                      <TableRow key={`${job.jobName}-${index}`} className="hover:bg-muted/30">
                         <TableCell className="font-medium">{job.jobName}</TableCell>
-                        <TableCell>{job.jobType ?? "—"}</TableCell>
-                        <TableCell>{job.platform ?? "—"}</TableCell>
+                        <TableCell>{job.jobType ?? "--"}</TableCell>
+                        <TableCell>{job.platform ?? "--"}</TableCell>
                         <TableCell>
                           <Badge variant="secondary">{job.linkedVMs?.length ?? 0} VMs</Badge>
                         </TableCell>
@@ -800,13 +947,69 @@ const BackupReplication = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {multiVmTable.filteredData.length > 0 && (
+              <TablePagination
+                currentPage={multiVmTable.pagination.currentPage}
+                totalPages={multiVmTable.pagination.totalPages}
+                totalItems={multiVmTable.pagination.totalItems}
+                startIndex={multiVmTable.pagination.startIndex}
+                endIndex={multiVmTable.pagination.endIndex}
+                pageSize={multiVmTable.pagination.pageSize}
+                onPageChange={multiVmTable.pagination.setCurrentPage}
+                onPageSizeChange={multiVmTable.pagination.setPageSize}
+                canGoNext={multiVmTable.pagination.canGoNext}
+                canGoPrevious={multiVmTable.pagination.canGoPrevious}
+                onFirstPage={multiVmTable.pagination.goToFirstPage}
+                onLastPage={multiVmTable.pagination.goToLastPage}
+                onNextPage={multiVmTable.pagination.goToNextPage}
+                onPreviousPage={multiVmTable.pagination.goToPreviousPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
         {/* Replicas */}
         <TabsContent value="replicas" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <h2 className="text-lg font-semibold mb-4">Replicas</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Replicas</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review replica status and recent synchronization activity
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={replicasTable.searchQuery}
+                    onChange={(e) => replicasTable.setSearchQuery(e.target.value)}
+                    placeholder="Search replica, source, or target..."
+                    className="pl-9 w-[220px] xl:w-[260px] bg-muted/30"
+                  />
+                </div>
+
+                <Select
+                  value={replicasTable.filters.status ?? "all"}
+                  onValueChange={(value) => replicasTable.setFilter("status", value)}
+                >
+                  <SelectTrigger className="w-[130px] xl:w-[150px] bg-muted/30">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {replicaStatuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -820,22 +1023,25 @@ const BackupReplication = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {replicas.length === 0 ? (
+                  {replicasTable.pagination.paginatedData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                        No replicas
+                        {replicas.length === 0 ? "No replicas" : "No replicas match your filters"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    replicas.map((replica) => (
-                      <TableRow key={replica.name} className="hover:bg-muted/30">
+                    replicasTable.pagination.paginatedData.map((replica, index) => (
+                      <TableRow
+                        key={`${replica.name}-${replica.sourceVm}-${index}`}
+                        className="hover:bg-muted/30"
+                      >
                         <TableCell className="font-medium">{replica.name}</TableCell>
-                        <TableCell>{replica.sourceVm ?? "—"}</TableCell>
-                        <TableCell>{replica.target ?? "—"}</TableCell>
+                        <TableCell>{replica.sourceVm ?? "--"}</TableCell>
+                        <TableCell>{replica.target ?? "--"}</TableCell>
                         <TableCell>
                           <StatusBadge status={replica.status} size="sm" />
                         </TableCell>
-                        <TableCell>{replica.health ?? "—"}</TableCell>
+                        <TableCell>{replica.health ?? "--"}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDateTime(replica.lastSync)}
                         </TableCell>
@@ -845,28 +1051,87 @@ const BackupReplication = () => {
                 </TableBody>
               </Table>
             </div>
+
+            {replicasTable.filteredData.length > 0 && (
+              <TablePagination
+                currentPage={replicasTable.pagination.currentPage}
+                totalPages={replicasTable.pagination.totalPages}
+                totalItems={replicasTable.pagination.totalItems}
+                startIndex={replicasTable.pagination.startIndex}
+                endIndex={replicasTable.pagination.endIndex}
+                pageSize={replicasTable.pagination.pageSize}
+                onPageChange={replicasTable.pagination.setCurrentPage}
+                onPageSizeChange={replicasTable.pagination.setPageSize}
+                canGoNext={replicasTable.pagination.canGoNext}
+                canGoPrevious={replicasTable.pagination.canGoPrevious}
+                onFirstPage={replicasTable.pagination.goToFirstPage}
+                onLastPage={replicasTable.pagination.goToLastPage}
+                onNextPage={replicasTable.pagination.goToNextPage}
+                onPreviousPage={replicasTable.pagination.goToPreviousPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
         {/* Alerts */}
         <TabsContent value="alerts" className="mt-0">
           <Card className="p-6 rounded-lg border border-border">
-            <h2 className="text-lg font-semibold mb-4">Alerts</h2>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Alerts</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review current warning and critical alert activity
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Input
+                    value={alertsTable.searchQuery}
+                    onChange={(e) => alertsTable.setSearchQuery(e.target.value)}
+                    placeholder="Search message, VM, or job..."
+                    className="pl-9 w-[220px] xl:w-[260px] bg-muted/30"
+                  />
+                </div>
+
+                <Select
+                  value={alertsTable.filters.severity ?? "all"}
+                  onValueChange={(value) => alertsTable.setFilter("severity", value)}
+                >
+                  <SelectTrigger className="w-[140px] xl:w-[160px] bg-muted/30">
+                    <SelectValue placeholder="Severity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Severity</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-4">
-              {(alerts?.critical?.length ?? 0) > 0 && (
+              {paginatedCriticalAlerts.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-destructive mb-2">Critical Alerts</h3>
                   <div className="space-y-2">
-                    {alerts?.critical?.map((alert: any) => (
+                    {paginatedCriticalAlerts.map((alert) => (
                       <div
                         key={alert.id}
                         className="p-3 rounded-lg border border-destructive/30 bg-destructive/5"
                       >
                         <div className="flex items-start gap-3">
                           <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
-                          <div>
+                          <div className="space-y-1">
                             <div className="font-medium text-sm">{alert.message}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
+                            {(alert.relatedVm || alert.relatedJob) && (
+                              <div className="text-xs text-muted-foreground">
+                                {[alert.relatedVm, alert.relatedJob].filter(Boolean).join(" • ")}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
                               {formatDateTime(alert.timestamp)}
                             </div>
                           </div>
@@ -877,20 +1142,25 @@ const BackupReplication = () => {
                 </div>
               )}
 
-              {(alerts?.warnings?.length ?? 0) > 0 && (
+              {paginatedWarningAlerts.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-amber-500 mb-2">Warnings</h3>
                   <div className="space-y-2">
-                    {alerts?.warnings?.map((alert: any) => (
+                    {paginatedWarningAlerts.map((alert) => (
                       <div
                         key={alert.id}
                         className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5"
                       >
                         <div className="flex items-start gap-3">
                           <TriangleAlert className="w-4 h-4 text-amber-500 mt-0.5" />
-                          <div>
+                          <div className="space-y-1">
                             <div className="font-medium text-sm">{alert.message}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
+                            {(alert.relatedVm || alert.relatedJob) && (
+                              <div className="text-xs text-muted-foreground">
+                                {[alert.relatedVm, alert.relatedJob].filter(Boolean).join(" • ")}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
                               {formatDateTime(alert.timestamp)}
                             </div>
                           </div>
@@ -901,10 +1171,31 @@ const BackupReplication = () => {
                 </div>
               )}
 
-              {(alerts?.critical?.length ?? 0) === 0 && (alerts?.warnings?.length ?? 0) === 0 && (
-                <div className="text-center py-10 text-muted-foreground">No active alerts</div>
+              {alertsTable.filteredData.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground">
+                  {totalAlertCount === 0 ? "No active alerts" : "No alerts match your filters"}
+                </div>
               )}
             </div>
+
+            {alertsTable.filteredData.length > 0 && (
+              <TablePagination
+                currentPage={alertsPagination.currentPage}
+                totalPages={alertsPagination.totalPages}
+                totalItems={alertsPagination.totalItems}
+                startIndex={alertsPagination.startIndex}
+                endIndex={alertsPagination.endIndex}
+                pageSize={alertsPagination.pageSize}
+                onPageChange={alertsPagination.setCurrentPage}
+                onPageSizeChange={alertsPagination.setPageSize}
+                canGoNext={alertsPagination.canGoNext}
+                canGoPrevious={alertsPagination.canGoPrevious}
+                onFirstPage={alertsPagination.goToFirstPage}
+                onLastPage={alertsPagination.goToLastPage}
+                onNextPage={alertsPagination.goToNextPage}
+                onPreviousPage={alertsPagination.goToPreviousPage}
+              />
+            )}
           </Card>
         </TabsContent>
 
@@ -959,7 +1250,7 @@ function ChangeActivityContent({ changes, changeSummary, loading, onSelectJob }:
   const [activeTab, setActiveTab] = useState("new");
 
   if (loading) {
-    return <div className="text-center py-10 text-muted-foreground">Loading changes…</div>;
+    return <div className="text-center py-10 text-muted-foreground">Loading changesâ€¦</div>;
   }
 
   if (!changes) {
@@ -972,6 +1263,12 @@ function ChangeActivityContent({ changes, changeSummary, loading, onSelectJob }:
     enabled: changes.enabled ?? [],
     disabled: changes.disabled ?? [],
   };
+  const currentJobs = (tabData[activeTab as keyof typeof tabData] ?? []) as ChangedJob[];
+  const changePagination = usePagination(currentJobs, { defaultPageSize: 10 });
+
+  useEffect(() => {
+    changePagination.setCurrentPage(1);
+  }, [activeTab, changePagination.setCurrentPage]);
 
   return (
     <div className="space-y-6">
@@ -1047,7 +1344,29 @@ function ChangeActivityContent({ changes, changeSummary, loading, onSelectJob }:
 
         {Object.entries(tabData).map(([key, jobs]) => (
           <TabsContent key={key} value={key} className="mt-4">
-            <ChangedJobsTable jobs={jobs as ChangedJob[]} onSelectJob={onSelectJob} />
+            <ChangedJobsTable
+              jobs={key === activeTab ? changePagination.paginatedData : (jobs as ChangedJob[])}
+              onSelectJob={onSelectJob}
+            />
+
+            {key === activeTab && currentJobs.length > 0 && (
+              <TablePagination
+                currentPage={changePagination.currentPage}
+                totalPages={changePagination.totalPages}
+                totalItems={changePagination.totalItems}
+                startIndex={changePagination.startIndex}
+                endIndex={changePagination.endIndex}
+                pageSize={changePagination.pageSize}
+                onPageChange={changePagination.setCurrentPage}
+                onPageSizeChange={changePagination.setPageSize}
+                canGoNext={changePagination.canGoNext}
+                canGoPrevious={changePagination.canGoPrevious}
+                onFirstPage={changePagination.goToFirstPage}
+                onLastPage={changePagination.goToLastPage}
+                onNextPage={changePagination.goToNextPage}
+                onPreviousPage={changePagination.goToPreviousPage}
+              />
+            )}
           </TabsContent>
         ))}
       </Tabs>
@@ -1093,9 +1412,9 @@ function ChangedJobsTable({
             >
               <TableCell className="font-medium">{job.jobName}</TableCell>
               <TableCell>
-                <Badge variant="outline">{job.jobType ?? "—"}</Badge>
+                <Badge variant="outline">{job.jobType ?? "â€”"}</Badge>
               </TableCell>
-              <TableCell>{job.platform ?? "—"}</TableCell>
+              <TableCell>{job.platform ?? "â€”"}</TableCell>
               <TableCell>
                 <StatusBadge status={job.status} size="sm" />
               </TableCell>
@@ -1109,3 +1428,4 @@ function ChangedJobsTable({
 }
 
 export default BackupReplication;
+

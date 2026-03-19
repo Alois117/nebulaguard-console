@@ -12,6 +12,8 @@ export interface ReportItem {
   created_at: string;
 }
 
+export type ReportTab = "all" | "daily" | "weekly" | "monthly" | "custom";
+
 export interface ReportCounts {
   total: number;
   daily: number;
@@ -31,15 +33,12 @@ export interface UseReportsReturn {
   paginatedReports: ReportItem[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  selectedType: string;
-  setSelectedType: (type: string) => void;
+  selectedType: ReportTab;
+  setSelectedType: (type: ReportTab) => void;
   currentPage: number;
   setCurrentPage: (page: number) => void;
   totalPages: number;
   pageSize: number;
-  dateRange: { from: Date | null; to: Date | null };
-  setDateRange: (range: { from: Date | null; to: Date | null }) => void;
-  fetchCustomReports: () => Promise<void>;
 }
 
 const sortReportsDescending = (reports: ReportItem[]): ReportItem[] => {
@@ -56,18 +55,14 @@ export const useReports = (): UseReportsReturn => {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reportsMapRef = useRef<Map<string, ReportItem>>(new Map());
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedType, setSelectedType] = useState("all");
+  const [selectedType, setSelectedType] = useState<ReportTab>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
-    from: null,
-    to: null,
-  });
 
   const { authenticatedFetch } = useAuthenticatedFetch();
 
@@ -171,55 +166,6 @@ export const useReports = (): UseReportsReturn => {
     [authenticatedFetch]
   );
 
-  const fetchCustomReports = useCallback(async () => {
-    if (!dateRange.from || !dateRange.to) return;
-
-    try {
-      setLoading(true);
-
-        const response = await authenticatedFetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: dateRange.from.toISOString(),
-            to: dateRange.to.toISOString(),
-          }),
-        });
-
-        const result = await safeParseResponse<ReportItem[]>(response, WEBHOOK_URL);
-        if (!result.ok) throw new Error(result.userMessage);
-
-        const webhookReports: ReportItem[] = Array.isArray(result.data) ? result.data : [];
-
-      const validReports = webhookReports.filter(
-        (r) =>
-          r &&
-          typeof r.report_type === "string" &&
-          typeof r.report_template === "string" &&
-          typeof r.created_at === "string"
-      );
-
-      // Normalize HTML templates (handle double-escaped content)
-      const processedReports = validReports.map((report) => ({
-        ...report,
-        report_template: normalizeHtml(report.report_template),
-      }));
-
-      const sortedReports = sortReportsDescending(processedReports);
-      setReports(sortedReports);
-      setIsConnected(true);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      const safe = err instanceof Error ? err.message : "We couldn't load custom reports. Please try again.";
-      console.error("[useReports] Custom fetch error:", err);
-      setError(safe);
-      setIsConnected(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [authenticatedFetch, dateRange]);
-
   const filteredReports = useMemo(() => {
     let result = reports;
     if (selectedType !== "all") {
@@ -282,9 +228,6 @@ export const useReports = (): UseReportsReturn => {
     setCurrentPage,
     totalPages,
     pageSize,
-    dateRange,
-    setDateRange,
-    fetchCustomReports,
   };
 };
 

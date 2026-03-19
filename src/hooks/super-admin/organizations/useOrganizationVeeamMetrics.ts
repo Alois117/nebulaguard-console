@@ -20,6 +20,14 @@ import {
   WEBHOOK_VEEAM_VMS_URL,
   WEBHOOK_VEEAM_ALARMS_URL,
 } from "@/config/env";
+import {
+  dedupeVeeamAlarmsByLatest,
+  mapVeeamAlarmsPayload,
+} from "@/hooks/super-admin/shared-ui/veeamAlarmPayload";
+import {
+  defensivelyFilterBackupReplicationItems,
+  deriveScopedBackupReplicationSummary,
+} from "@/lib/backupReplicationScope";
 import type {
   AlarmSeverity,
   AlarmStatus,
@@ -141,16 +149,16 @@ export interface BRChangedJob {
 }
 
 export interface BackupReplicationData {
-  summary: any;
+  summary: unknown;
   matched: BRMatchedVm[];
-  alerts: { warnings: any[]; critical: any[] } | null;
-  statistics: any;
+  alerts: { warnings: unknown[]; critical: unknown[] } | null;
+  statistics: unknown;
   vmsWithoutJobs: BRUnprotectedVm[];
   jobsWithoutVMs: BROrphanJob[];
   multiVMJobs: BRMultiVmJob[];
   replicas: BRReplica[];
-  changes: any;
-  changeSummary: any;
+  changes: unknown;
+  changeSummary: unknown;
 }
 
 // Infrastructure VM (mirrors useVeeamInfrastructure)
@@ -172,9 +180,9 @@ export interface InfraVM {
       guestDnsName: string | null;
       guestIpAddresses: string[];
       lastProtectedDate: string | null;
-      [key: string]: any;
+      [key: string]: unknown;
     };
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -199,9 +207,22 @@ export interface VeeamAlarmItem {
   first_ai_response?: string;
 }
 
+export interface PreloadedVeeamMetricsData {
+  brData: BackupReplicationData | null;
+  infraVMs: InfraVM[];
+  alarmItems: VeeamAlarmItem[];
+  loading?: boolean;
+  error?: string | null;
+  lastUpdated?: Date | null;
+  onRefresh?: () => void;
+}
+
 // ─── Pagination helper ──────────────────────────────────────────────────────
 
 const PAGE_SIZE = 8;
+const EMPTY_INFRA_VMS: InfraVM[] = [];
+const EMPTY_ALARM_ITEMS: VeeamAlarmItem[] = [];
+type UnknownRecord = Record<string, unknown>;
 
 function usePaginatedList<T>(items: T[]) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -230,7 +251,7 @@ function usePaginatedList<T>(items: T[]) {
 
 // ─── clientId helpers ───────────────────────────────────────────────────────
 
-const toNumberOrNull = (v: any): number | null => {
+const toNumberOrNull = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
@@ -240,60 +261,30 @@ const normalizeClientId = (clientId: number | null): number | null => {
   return n != null && n > 0 ? n : null;
 };
 
-const matchesClientId = (payloadClientId: any, clientId: number | null) => {
+const matchesClientId = (payloadClientId: unknown, clientId: number | null) => {
   if (clientId == null) return true;
   const n = toNumberOrNull(payloadClientId);
   return n != null && n === clientId;
 };
 
-/**
- * BR payloads can be nested / inconsistent. Try a few likely places for client_id.
- * If none exists, return null, meaning we can't filter that item client-side.
- */
-const extractClientIdFromBRItem = (x: any): number | null => {
-  const candidate =
-    x?.client_id ??
-    x?.clientId ??
-    x?.vm?.client_id ??
-    x?.vm?.clientId ??
-    x?.parsedJob?.client_id ??
-    x?.parsedJob?.clientId ??
-    x?.jobs?.[0]?.client_id ??
-    x?.jobs?.[0]?.clientId ??
-    x?.jobs?.[0]?.parsedJob?.client_id ??
-    x?.jobs?.[0]?.parsedJob?.clientId;
-
-  return toNumberOrNull(candidate);
-};
-
 const defensivelyFilterBRList = <T,>(
   list: T[],
   clientId: number | null
-): T[] => {
-  if (clientId == null) return list;
-  // Only filter when we can actually see a clientId in items;
-  // otherwise keep list and rely on backend scoping.
-  const hasAnyClientId = list.some(
-    (x: any) => extractClientIdFromBRItem(x) != null
-  );
-  if (!hasAnyClientId) return list;
-
-  return list.filter((x: any) =>
-    matchesClientId(extractClientIdFromBRItem(x), clientId)
-  );
-};
+): T[] => defensivelyFilterBackupReplicationItems(list, clientId);
 
 // ─── Main Hook ──────────────────────────────────────────────────────────────
 
 interface UseOrganizationVeeamMetricsOptions {
   clientId: number | null;
   enabled?: boolean;
+  preloadedData?: PreloadedVeeamMetricsData;
 }
 
 export const useOrganizationVeeamMetrics = (
   options: UseOrganizationVeeamMetricsOptions
 ) => {
-  const { enabled = true } = options;
+  const { enabled = true, preloadedData } = options;
+  const isPreloadedMode = Boolean(preloadedData);
   const clientId = normalizeClientId(options.clientId);
   const hasClientId = clientId != null;
 
@@ -304,7 +295,7 @@ export const useOrganizationVeeamMetrics = (
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // ── Raw data ──
@@ -351,10 +342,23 @@ export const useOrganizationVeeamMetrics = (
     undefined
   );
 
+  const effectiveBrData = isPreloadedMode ? preloadedData?.brData ?? null : brData;
+  const effectiveInfraVMs = isPreloadedMode
+    ? preloadedData?.infraVMs ?? EMPTY_INFRA_VMS
+    : infraVMs;
+  const effectiveAlarmItems = isPreloadedMode
+    ? preloadedData?.alarmItems ?? EMPTY_ALARM_ITEMS
+    : alarmItems;
+  const effectiveLoading = isPreloadedMode ? Boolean(preloadedData?.loading) : loading;
+  const effectiveError = isPreloadedMode ? preloadedData?.error ?? null : error;
+  const effectiveLastUpdated = isPreloadedMode
+    ? preloadedData?.lastUpdated ?? null
+    : lastUpdated;
+
   // ── Fetch all 3 endpoints ──
   const fetchAll = useCallback(
     async (silent = false) => {
-      if (!enabled) return;
+      if (!enabled || isPreloadedMode) return;
 
       // If no clientId, do not fetch global Veeam data.
       if (!hasClientId) {
@@ -422,46 +426,88 @@ export const useOrganizationVeeamMetrics = (
 
             if (result.ok && result.data) {
               const arr = Array.isArray(result.data) ? result.data : [];
-              const mainObj = (arr[0] ?? {}) as Record<string, any>;
-              const metaObj = (arr[1] ?? {}) as Record<string, any>;
+              const mainObj = (arr[0] ?? {}) as UnknownRecord;
+              const metaObj = (arr[1] ?? {}) as UnknownRecord;
 
-              console.log("[BR super-admin] Parsed main keys:", Object.keys(mainObj));
+              // Keys parsed successfully
 
               // Extract lists from the main object (same shape as User Dashboard)
-              // Backend already scopes response by client_id (sent in POST body).
-              // Do NOT re-filter client-side — items may not carry their own client_id field,
-              // which causes defensivelyFilterBRList to drop valid rows.
-              const matched: BRMatchedVm[] =
-                Array.isArray(mainObj.matched) ? mainObj.matched : [];
-              const vmsWithoutJobs: BRUnprotectedVm[] =
-                Array.isArray(mainObj.vmsWithoutJobs) ? mainObj.vmsWithoutJobs : [];
-              const jobsWithoutVMs: BROrphanJob[] =
-                Array.isArray(mainObj.jobsWithoutVMs) ? mainObj.jobsWithoutVMs : [];
-              const multiVMJobs: BRMultiVmJob[] =
-                Array.isArray(mainObj.multiVMJobs) ? mainObj.multiVMJobs : [];
-              const replicas: BRReplica[] =
-                Array.isArray(mainObj.replicas) ? mainObj.replicas : [];
-
-              setBrData({
+              // Defensively scope BR rows the same way Infra and Alarms are scoped.
+              // If a row exposes nested client metadata, keep only the selected org's rows.
+              // If not, fall back to the already scoped backend response.
+              const matched = defensivelyFilterBRList<BRMatchedVm>(
+                Array.isArray(mainObj.matched) ? mainObj.matched : [],
+                clientId
+              );
+              const vmsWithoutJobs = defensivelyFilterBRList<BRUnprotectedVm>(
+                Array.isArray(mainObj.vmsWithoutJobs) ? mainObj.vmsWithoutJobs : [],
+                clientId
+              );
+              const jobsWithoutVMs = defensivelyFilterBRList<BROrphanJob>(
+                Array.isArray(mainObj.jobsWithoutVMs) ? mainObj.jobsWithoutVMs : [],
+                clientId
+              );
+              const multiVMJobs = defensivelyFilterBRList<BRMultiVmJob>(
+                Array.isArray(mainObj.multiVMJobs) ? mainObj.multiVMJobs : [],
+                clientId
+              );
+              const replicas = defensivelyFilterBRList<BRReplica>(
+                Array.isArray(mainObj.replicas) ? mainObj.replicas : [],
+                clientId
+              );
+              const rawChanges =
+                metaObj.changes && typeof metaObj.changes === "object"
+                  ? (metaObj.changes as Record<string, unknown>)
+                  : {};
+              const filteredChanges = {
+                new: defensivelyFilterBRList(
+                  Array.isArray(rawChanges.new) ? rawChanges.new : [],
+                  clientId
+                ),
+                modified: defensivelyFilterBRList(
+                  Array.isArray(rawChanges.modified) ? rawChanges.modified : [],
+                  clientId
+                ),
+                enabled: defensivelyFilterBRList(
+                  Array.isArray(rawChanges.enabled) ? rawChanges.enabled : [],
+                  clientId
+                ),
+                disabled: defensivelyFilterBRList(
+                  Array.isArray(rawChanges.disabled) ? rawChanges.disabled : [],
+                  clientId
+                ),
+                unchanged: defensivelyFilterBRList(
+                  Array.isArray(rawChanges.unchanged) ? rawChanges.unchanged : [],
+                  clientId
+                ),
+              };
+              const scopedSummary = deriveScopedBackupReplicationSummary({
                 summary: mainObj.summary ?? null,
                 matched,
-                alerts: mainObj.alerts ?? null,
+                vmsWithoutJobs,
+                jobsWithoutVMs,
+                multiVMJobs,
+                changes: filteredChanges,
+              });
+
+              setBrData({
+                summary: scopedSummary.summary,
+                matched,
+                alerts: (mainObj.alerts as BackupReplicationData["alerts"]) ?? { warnings: [], critical: [] },
                 statistics: mainObj.statistics ?? null,
                 vmsWithoutJobs,
                 jobsWithoutVMs,
                 multiVMJobs,
                 replicas,
-                changes: metaObj.changes ?? null,
-                changeSummary: metaObj.summary ?? null,
+                changes: filteredChanges,
+                changeSummary: scopedSummary.changeSummary,
               });
 
-              console.log("[BR super-admin] Matched VMs:", matched.length, "Unprotected:", vmsWithoutJobs.length, "Orphan:", jobsWithoutVMs.length);
-            } else {
-              setBrData(null);
+              // Data mapped successfully
             }
-          } catch (parseErr) {
-            console.error("[BR super-admin] Parse error:", parseErr);
-            setBrData(null);
+            // On parse failure during silent refresh, keep previous BR data
+          } catch {
+            // On parse error during silent refresh, keep previous BR data
           }
         }
 
@@ -475,101 +521,60 @@ export const useOrganizationVeeamMetrics = (
             if (result.ok && result.data) {
               const vmsRaw = Array.isArray(result.data)
                 ? result.data
-                : [result.data as any];
+                : [result.data as unknown];
 
-              const vms = vmsRaw.filter((vm: any) =>
-                matchesClientId(vm?.client_id ?? vm?.clientId, clientId)
+              const vms = vmsRaw.filter((vm: unknown) =>
+                matchesClientId(
+                  (() => {
+                    if (!vm || typeof vm !== "object") return undefined;
+                    const record = vm as UnknownRecord;
+                    const rawJson =
+                      record.raw_json && typeof record.raw_json === "object"
+                        ? (record.raw_json as UnknownRecord)
+                        : ({} as UnknownRecord);
+                    return (
+                      record.client_id ??
+                      record.clientId ??
+                      rawJson.client_id ??
+                      rawJson.clientId
+                    );
+                  })(),
+                  clientId
+                )
               );
 
-              setInfraVMs(vms);
-            } else {
-              setInfraVMs([]);
+              setInfraVMs(vms as InfraVM[]);
             }
           } catch {
-            /* parsing error */
+            /* parsing error — keep previous data */
           }
         }
 
         // ── Alarms ── (unchanged)
         if (alarmsRes.status === "fulfilled" && alarmsRes.value.ok) {
           try {
-            const result = await safeParseResponse<any[]>(
+            const result = await safeParseResponse<unknown[]>(
               alarmsRes.value,
               WEBHOOK_VEEAM_ALARMS_URL
             );
 
             if (result.ok && result.data && Array.isArray(result.data)) {
-              const severityMap: Record<string, string> = {
-                Error: "Critical",
-                Warning: "Warning",
-                Information: "Info",
-                High: "High",
-                Resolved: "Info",
-              };
-
-              const alarmsArray = result.data
-                .map((item: any) => {
-                  if (typeof item !== "object" || item === null) return null;
-                  const outerKey = Object.keys(item)[0];
-                  if (!outerKey) return null;
-                  const inner = item[outerKey];
-                  if (!inner) return null;
-
-                  const mappedSeverity = severityMap[outerKey] || "Unknown";
-                  const isResolved =
-                    outerKey === "Resolved" ||
-                    (inner.description || "")
-                      .toLowerCase()
-                      .includes("back to normal");
-                  const mappedStatus: string = isResolved ? "Resolved" : "Active";
-
-                  return {
-                    client_id: inner.client_id,
-                    alarm_id: inner.triggered_alarm_id || "",
-                    dedupe_key: inner.dedupe_key || "",
-                    name: inner.alarm_name || "",
-                    description: inner.description || "",
-                    severity: mappedSeverity,
-                    status: mappedStatus,
-                    entity_type: inner.object_type || "",
-                    entity_name: inner.object_name || "",
-                    triggered_at: inner.triggered_time || null,
-                    resolved_at: inner.resolved_at || null,
-                    first_seen: inner.first_seen || null,
-                    last_seen: inner.last_seen || null,
-                    seen_count: inner.repeat_count || 0,
-                    times_sent: 0,
-                    reminder_interval: undefined,
-                    first_ai_response: inner.comment || undefined,
-                  } as VeeamAlarmItem;
-                })
-                .filter((a): a is VeeamAlarmItem => Boolean(a))
-                .filter((a) => matchesClientId(a?.client_id, clientId));
-
-              // Deduplicate by dedupe_key
-              const uniqueMap = new Map<string, VeeamAlarmItem>();
-              alarmsArray.forEach((alarm) => {
-                if (alarm.dedupe_key && !uniqueMap.has(alarm.dedupe_key)) {
-                  uniqueMap.set(alarm.dedupe_key, alarm);
-                }
-              });
-
-              setAlarmItems(Array.from(uniqueMap.values()));
-            } else {
-              setAlarmItems([]);
+              const mapped = mapVeeamAlarmsPayload(result.data).filter((alarm) =>
+                matchesClientId(alarm.client_id, clientId)
+              );
+              const deduped = dedupeVeeamAlarmsByLatest(mapped);
+              setAlarmItems(deduped as VeeamAlarmItem[]);
             }
           } catch {
-            /* parsing error */
+            /* parsing error — keep previous data */
           }
         }
 
         setLastUpdated(new Date());
         setError(null);
       } catch (err) {
-        // Abort is not a "real error"
-        if ((err as any)?.name === "AbortError") return;
+        if ((err as { name?: string })?.name === "AbortError") return;
 
-        console.error("[useOrganizationVeeamMetrics] Fetch error:", err);
         if (!silent) {
           setError(
             err instanceof Error ? err.message : "Failed to fetch Veeam metrics"
@@ -579,12 +584,12 @@ export const useOrganizationVeeamMetrics = (
         if (!silent) setLoading(false);
       }
     },
-    [clientId, hasClientId, enabled, authenticatedFetch]
+    [clientId, hasClientId, enabled, isPreloadedMode, authenticatedFetch]
   );
 
   // Initial fetch + auto-refresh + reset on org change
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || isPreloadedMode) return;
 
     // Reset state on org change so old org data never flashes
     setBrData(null);
@@ -605,34 +610,34 @@ export const useOrganizationVeeamMetrics = (
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [clientId, hasClientId, enabled, fetchAll]);
+  }, [clientId, hasClientId, enabled, isPreloadedMode, fetchAll]);
 
   // ── Computed: Summary ──
   const summary = useMemo<VeeamMetricsSummary>(() => {
-    const br = brData;
-    const brSummary = br?.summary;
+    const br = effectiveBrData;
+    const brSummaryRec = (br?.summary && typeof br.summary === "object" ? br.summary : {}) as Record<string, unknown>;
 
     return {
-      totalVMs: brSummary?.overview?.totalVMs ?? br?.matched?.length ?? 0,
-      protectedVMs: brSummary?.protection?.protectedVMs ?? br?.matched?.filter((m) => m.vm?.isProtected).length ?? 0,
-      unprotectedVMs: brSummary?.protection?.unprotectedVMs ?? br?.vmsWithoutJobs?.length ?? 0,
-      totalJobs: brSummary?.overview?.totalJobs ?? br?.matched?.reduce((acc, m) => acc + (m.jobs?.length ?? 0), 0) ?? 0,
-      staleBackups: brSummary?.backupHealth?.staleBackups ?? 0,
-      activeAlerts: alarmItems.filter((a) => a.status === "Active").length,
-      infraVMs: infraVMs.length,
-      infraPoweredOn: infraVMs.filter(
+      totalVMs: (brSummaryRec.overview as Record<string, unknown>)?.totalVMs as number ?? br?.matched?.length ?? 0,
+      protectedVMs: (brSummaryRec.protection as Record<string, unknown>)?.protectedVMs as number ?? br?.matched?.filter((m) => m.vm?.isProtected).length ?? 0,
+      unprotectedVMs: (brSummaryRec.protection as Record<string, unknown>)?.unprotectedVMs as number ?? br?.vmsWithoutJobs?.length ?? 0,
+      totalJobs: (brSummaryRec.overview as Record<string, unknown>)?.totalJobs as number ?? br?.matched?.reduce((acc, m) => acc + (m.jobs?.length ?? 0), 0) ?? 0,
+      staleBackups: ((brSummaryRec.backupHealth as Record<string, unknown>)?.staleBackups as number) ?? 0,
+      activeAlerts: effectiveAlarmItems.filter((a) => a.status === "Active").length,
+      infraVMs: effectiveInfraVMs.length,
+      infraPoweredOn: effectiveInfraVMs.filter(
         (vm) => vm.raw_json?.vm_metrics?.powerState === "PoweredOn"
       ).length,
-      infraProtected: infraVMs.filter(
+      infraProtected: effectiveInfraVMs.filter(
         (vm) => vm.raw_json?.vm_metrics?.isProtected === true
       ).length,
-      loading,
+      loading: effectiveLoading,
     };
-  }, [brData, infraVMs, alarmItems, loading]);
+  }, [effectiveBrData, effectiveInfraVMs, effectiveAlarmItems, effectiveLoading]);
 
   // ── Filtered & paginated: Backup & Replication matched VMs ──
   const filteredBRMatched = useMemo(() => {
-    let list = brData?.matched ?? [];
+    let list = effectiveBrData?.matched ?? [];
     const q = brSearch.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -664,7 +669,7 @@ export const useOrganizationVeeamMetrics = (
       });
     }
     return list;
-  }, [brData, brSearch, brProtectedFilter, brStatusFilter, brPowerFilter]);
+  }, [effectiveBrData, brSearch, brProtectedFilter, brStatusFilter, brPowerFilter]);
 
   const brPagination = usePaginatedList(filteredBRMatched);
 
@@ -676,7 +681,7 @@ export const useOrganizationVeeamMetrics = (
 
   // ── Filtered & paginated: Infrastructure VMs ── (unchanged)
   const filteredInfraVMs = useMemo(() => {
-    let list = infraVMs.filter((vm) => vm.raw_json?.vm_metrics);
+    let list = effectiveInfraVMs.filter((vm) => vm.raw_json?.vm_metrics);
     const q = infraSearch.trim().toLowerCase();
     if (q) {
       list = list.filter((vm) => {
@@ -703,7 +708,7 @@ export const useOrganizationVeeamMetrics = (
     return list.sort((a, b) =>
       (a.raw_json?.vm_name ?? "").localeCompare(b.raw_json?.vm_name ?? "")
     );
-  }, [infraVMs, infraSearch, infraPowerFilter, infraProtectionFilter]);
+  }, [effectiveInfraVMs, infraSearch, infraPowerFilter, infraProtectionFilter]);
 
   const infraPagination = usePaginatedList(filteredInfraVMs);
 
@@ -714,23 +719,23 @@ export const useOrganizationVeeamMetrics = (
 
   // ── Filtered & paginated: Alarms ── (unchanged)
   const alarmsEntityTypes = useMemo(() => {
-    const types = new Set(alarmItems.map((a) => a.entity_type).filter(Boolean));
+    const types = new Set(effectiveAlarmItems.map((a) => a.entity_type).filter(Boolean));
     return Array.from(types).sort();
-  }, [alarmItems]);
+  }, [effectiveAlarmItems]);
 
   const alarmsCounts = useMemo(
     () => ({
-      total: alarmItems.length,
-      active: alarmItems.filter((a) => a.status === "Active").length,
-      acknowledged: alarmItems.filter((a) => a.status === "Acknowledged").length,
-      resolved: alarmItems.filter((a) => a.status === "Resolved").length,
-      suppressed: alarmItems.filter((a) => a.status === "Suppressed").length,
+      total: effectiveAlarmItems.length,
+      active: effectiveAlarmItems.filter((a) => a.status === "Active").length,
+      acknowledged: effectiveAlarmItems.filter((a) => a.status === "Acknowledged").length,
+      resolved: effectiveAlarmItems.filter((a) => a.status === "Resolved").length,
+      suppressed: effectiveAlarmItems.filter((a) => a.status === "Suppressed").length,
     }),
-    [alarmItems]
+    [effectiveAlarmItems]
   );
 
   const filteredAlarms = useMemo(() => {
-    let list = alarmItems;
+    let list = effectiveAlarmItems;
     const q = alarmsSearch.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -793,7 +798,7 @@ export const useOrganizationVeeamMetrics = (
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     });
   }, [
-    alarmItems,
+    effectiveAlarmItems,
     alarmsSearch,
     alarmsStatusFilter,
     alarmsSeverityFilter,
@@ -818,16 +823,24 @@ export const useOrganizationVeeamMetrics = (
     alarmsCustomDateTo,
   ]);
 
+  const refresh = useCallback(() => {
+    if (isPreloadedMode) {
+      preloadedData?.onRefresh?.();
+      return;
+    }
+    void fetchAll(false);
+  }, [isPreloadedMode, preloadedData, fetchAll]);
+
   return {
     // Summary
     summary,
-    loading,
-    error,
-    lastUpdated,
-    refresh: () => fetchAll(false),
+    loading: effectiveLoading,
+    error: effectiveError,
+    lastUpdated: effectiveLastUpdated,
+    refresh,
 
     // Backup & Replication
-    brData,
+    brData: effectiveBrData,
     filteredBRMatched,
     brPagination,
     brSearch,
@@ -840,7 +853,7 @@ export const useOrganizationVeeamMetrics = (
     setBrPowerFilter,
 
     // Infrastructure
-    infraVMs,
+    infraVMs: effectiveInfraVMs,
     filteredInfraVMs,
     infraPagination,
     infraSearch,
@@ -851,7 +864,7 @@ export const useOrganizationVeeamMetrics = (
     setInfraProtectionFilter,
 
     // Alarms
-    alarmItems,
+    alarmItems: effectiveAlarmItems,
     filteredAlarms,
     alarmsPagination,
     alarmsCounts,

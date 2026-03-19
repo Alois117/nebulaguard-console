@@ -8,6 +8,7 @@ import {
   useKeycloakOrganizations,
   type KeycloakOrganization,
 } from "@/hooks/keycloak";
+import { useKeycloakMemberCounts } from "@/hooks/keycloak/useKeycloakMemberCounts";
 import {
   Organization,
   OrganizationCounts,
@@ -135,10 +136,20 @@ export const useOrganizations = (pageSize = 10): UseOrganizationsReturn => {
     deleteOrganization,
   } = useKeycloakOrganizations();
 
+  const orgIds = useMemo(() => keycloakOrgs.map((org) => org.id), [keycloakOrgs]);
+  const { counts: memberCounts } = useKeycloakMemberCounts({
+    orgIds,
+    enabled: keycloakOrgs.length > 0,
+  });
+
   // Transform Keycloak orgs to internal format
   const organizations = useMemo(
-    () => keycloakOrgs.map(transformKeycloakOrg),
-    [keycloakOrgs]
+    () =>
+      keycloakOrgs.map((org) => ({
+        ...transformKeycloakOrg(org),
+        userCount: memberCounts.get(org.id) ?? 0,
+      })),
+    [keycloakOrgs, memberCounts]
   );
 
   const [isConnected, setIsConnected] = useState(false);

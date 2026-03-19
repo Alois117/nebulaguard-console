@@ -2,7 +2,7 @@
  * Organization Detail View
  * Shows detailed metrics for a selected organization with clickable drilldown cards
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   X,
   Users,
@@ -14,14 +14,11 @@ import {
   TrendingUp,
   CheckCircle,
   XCircle,
-  RefreshCw,
-  ChevronDown,
   Activity,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   Organization,
@@ -37,11 +34,14 @@ import {
   VeeamJobItem,
   UserItem,
 } from "@/hooks/super-admin/organizations/useOrganizationDetails";
-import { ReportsDrilldown, InsightsDrilldown, UsersDrilldown } from "./drilldown";
+import { ReportsDrilldown, UsersDrilldown } from "./drilldown";
+import SuperAdminInsightsView from "./ai-insights/SuperAdminInsightsView";
 import ZabbixMetricsDrilldown from "./drilldown/ZabbixMetricsDrilldown";
 import VeeamMetricsDrilldown from "./VeeamMetricsDrilldown";
 import { DrilldownDetailDrawer } from "./drilldown/detail";
 import { format } from "date-fns";
+import MonitoringMetricCard from "./MonitoringMetricCard";
+import OrgDetailMonitoringOverview from "./OrgDetailMonitoringOverview";
 
 interface OrganizationDetailViewProps {
   organization: Organization;
@@ -51,68 +51,6 @@ interface OrganizationDetailViewProps {
   onClose: () => void;
   onRefresh: () => void;
 }
-
-interface ClickableMetricCardProps {
-  title: string;
-  icon: React.ElementType;
-  loading: boolean;
-  children: React.ReactNode;
-  iconColor?: string;
-  isSelected: boolean;
-  onClick: () => void;
-  category: DrilldownCategory;
-  disabled?: boolean;
-  disabledTitle?: string;
-}
-
-const ClickableMetricCard = ({
-  title,
-  icon: Icon,
-  loading,
-  children,
-  iconColor = "text-primary",
-  isSelected,
-  onClick,
-  disabled = false,
-  disabledTitle,
-}: ClickableMetricCardProps) => (
-  <Card
-    className={`
-      p-4 border-border/50 transition-all duration-200
-      ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}
-      ${
-        !disabled
-          ? "hover:border-primary/50 hover:shadow-md hover:shadow-primary/5 hover:bg-muted/30"
-          : ""
-      }
-      ${isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : ""}
-    `}
-    onClick={() => {
-      if (!disabled) onClick();
-    }}
-    title={disabled ? disabledTitle : undefined}
-  >
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
-        <Icon className={`w-5 h-5 ${isSelected ? "text-primary" : iconColor}`} />
-        <h4 className="font-medium text-sm">{title}</h4>
-      </div>
-      <ChevronDown
-        className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
-          isSelected ? "rotate-180 text-primary" : ""
-        }`}
-      />
-    </div>
-    {loading ? (
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-20" />
-        <Skeleton className="h-4 w-32" />
-      </div>
-    ) : (
-      children
-    )}
-  </Card>
-);
 
 const OrganizationDetailView = ({
   organization,
@@ -153,6 +91,18 @@ const OrganizationDetailView = ({
 
   const [selectedItem, setSelectedItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [preferredZabbixTab, setPreferredZabbixTab] = useState<"alerts" | "hosts">("alerts");
+  const [preferredHostQuery, setPreferredHostQuery] = useState("");
+
+  // Pre-fetch overview-dependent data on mount so shared overview cards
+  // (including AI summary) have scoped data before drilldown is opened.
+  useEffect(() => {
+    if (organization.id) {
+      refreshCategory("zabbix_metrics");
+      refreshCategory("insights");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organization.id]);
 
   const handleCardClick = (category: DrilldownCategory) => {
     if (selectedCategory === category) {
@@ -161,6 +111,26 @@ const OrganizationDetailView = ({
       setSelectedCategory(category);
     }
     // Close drawer when switching categories
+    setSelectedItem(null);
+    setDrawerOpen(false);
+  };
+
+  const handleOpenZabbixFromOverview = (options?: { tab?: "alerts" | "hosts"; host?: string }) => {
+    setPreferredZabbixTab(options?.tab ?? "alerts");
+    setPreferredHostQuery(options?.host ?? "");
+    setSelectedCategory("zabbix_metrics");
+    setSelectedItem(null);
+    setDrawerOpen(false);
+  };
+
+  const handleOpenVeeamFromOverview = () => {
+    setSelectedCategory("veeam");
+    setSelectedItem(null);
+    setDrawerOpen(false);
+  };
+
+  const handleOpenInsightsFromOverview = () => {
+    setSelectedCategory("insights");
     setSelectedItem(null);
     setDrawerOpen(false);
   };
@@ -205,11 +175,26 @@ const OrganizationDetailView = ({
         return (
           <ZabbixMetricsDrilldown
             orgName={organization.name}
-            alerts={alerts}
-            hosts={hosts}
+            alerts={{
+              items: alerts.items,
+              loading: alerts.loading,
+              error: alerts.error,
+              isConnected: !alerts.error,
+              lastUpdated: alerts.lastFetched,
+            }}
+            hosts={{
+              items: hosts.items,
+              loading: hosts.loading,
+              error: hosts.error,
+              isConnected: !hosts.error,
+              lastUpdated: hosts.lastFetched,
+            }}
             onRefreshAlerts={() => refreshCategory("alerts")}
             onRefreshHosts={() => refreshCategory("hosts")}
-            onItemClick={handleItemClick}
+            initialTab={preferredZabbixTab}
+            initialHostQuery={preferredHostQuery}
+            selectedOrganizationId={organization.id}
+            selectedOrganizationClientId={clientId}
           />
         );
       case "reports":
@@ -219,19 +204,23 @@ const OrganizationDetailView = ({
             reports={reports.items}
             loading={reports.loading}
             error={reports.error}
-            onRefresh={handleRefreshCategory}
-            onItemClick={handleItemClick}
+            isConnected={!reports.error}
+            lastUpdated={reports.lastFetched}
+            selectedOrganizationId={organization.id}
+            selectedOrganizationClientId={clientId}
           />
         );
       case "insights":
         return (
-          <InsightsDrilldown
-            orgName={organization.name}
+          <SuperAdminInsightsView
             insights={insights.items}
             loading={insights.loading}
             error={insights.error}
-            onRefresh={handleRefreshCategory}
-            onItemClick={handleItemClick}
+            isConnected={!insights.error}
+            lastUpdated={insights.lastFetched}
+            selectedOrganizationId={organization.id}
+            selectedOrganizationClientId={clientId}
+            onRefresh={() => refreshCategory("insights")}
           />
         );
       case "veeam":
@@ -327,14 +316,6 @@ const OrganizationDetailView = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
@@ -349,14 +330,13 @@ const OrganizationDetailView = ({
       {/* Metrics Grid - Clickable Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Zabbix Metrics (compact 2-column layout) */}
-        <ClickableMetricCard
+        <MonitoringMetricCard
           title="Zabbix Metrics"
           icon={Activity}
           loading={metrics.alerts.loading || metrics.hosts.loading}
           iconColor="text-primary"
           isSelected={selectedCategory === "zabbix_metrics"}
           onClick={() => handleCardClick("zabbix_metrics")}
-          category="zabbix_metrics"
           disabled={webhookDisabled}
           disabledTitle={webhookDisabledTitle}
         >
@@ -408,17 +388,16 @@ const OrganizationDetailView = ({
               </div>
             </div>
           </div>
-        </ClickableMetricCard>
+        </MonitoringMetricCard>
 
         {/* Reports */}
-        <ClickableMetricCard
+        <MonitoringMetricCard
           title="Reports"
           icon={FileText}
           loading={metrics.reports.loading}
           iconColor="text-secondary"
           isSelected={selectedCategory === "reports"}
           onClick={() => handleCardClick("reports")}
-          category="reports"
           disabled={webhookDisabled}
           disabledTitle={webhookDisabledTitle}
         >
@@ -430,17 +409,16 @@ const OrganizationDetailView = ({
               <span>{metrics.reports.monthly} monthly</span>
             </div>
           </div>
-        </ClickableMetricCard>
+        </MonitoringMetricCard>
 
         {/* AI Insights */}
-        <ClickableMetricCard
+        <MonitoringMetricCard
           title="AI Insights"
           icon={Brain}
           loading={metrics.insights.loading}
           iconColor="text-accent"
           isSelected={selectedCategory === "insights"}
           onClick={() => handleCardClick("insights")}
-          category="insights"
           disabled={webhookDisabled}
           disabledTitle={webhookDisabledTitle}
         >
@@ -451,17 +429,16 @@ const OrganizationDetailView = ({
               <span>{metrics.insights.anomalies} anomalies</span>
             </div>
           </div>
-        </ClickableMetricCard>
+        </MonitoringMetricCard>
 
         {/* Veeam Metrics */}
-        <ClickableMetricCard
+        <MonitoringMetricCard
           title="Veeam Metrics"
           icon={HardDrive}
           loading={metrics.veeam.loading}
           iconColor="text-success"
           isSelected={selectedCategory === "veeam"}
           onClick={() => handleCardClick("veeam")}
-          category="veeam"
           disabled={webhookDisabled}
           disabledTitle={webhookDisabledTitle}
         >
@@ -472,17 +449,16 @@ const OrganizationDetailView = ({
               <span className="text-destructive">{metrics.veeam.failed} failed</span>
             </div>
           </div>
-        </ClickableMetricCard>
+        </MonitoringMetricCard>
 
         {/* Users */}
-        <ClickableMetricCard
+        <MonitoringMetricCard
           title="Users"
           icon={Users}
           loading={metrics.users.loading}
           iconColor="text-primary"
           isSelected={selectedCategory === "users"}
           onClick={() => handleCardClick("users")}
-          category="users"
         >
           <div className="space-y-2">
             <p className="text-2xl font-bold">{metrics.users.total}</p>
@@ -490,8 +466,30 @@ const OrganizationDetailView = ({
               Total users in organization
             </p>
           </div>
-        </ClickableMetricCard>
+        </MonitoringMetricCard>
       </div>
+
+      {/* Monitoring Overview – visible only when no drilldown card is selected */}
+      {selectedCategory === null && (
+        <OrgDetailMonitoringOverview
+          metrics={metrics}
+          clientId={clientId}
+          alerts={alerts.items}
+          alertsLoading={alerts.loading}
+          alertsError={alerts.error}
+          alertsLastUpdated={alerts.lastFetched}
+          insights={insights.items}
+          insightsLoading={insights.loading}
+          insightsError={insights.error}
+          insightsLastUpdated={insights.lastFetched}
+          loading={loading}
+          error={null}
+          metricsLastUpdated={lastUpdated}
+          onOpenZabbix={handleOpenZabbixFromOverview}
+          onOpenVeeam={handleOpenVeeamFromOverview}
+          onOpenInsights={handleOpenInsightsFromOverview}
+        />
+      )}
 
       {/* Drilldown Section */}
       <Collapsible open={selectedCategory !== null}>
