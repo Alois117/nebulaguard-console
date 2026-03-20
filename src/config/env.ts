@@ -5,6 +5,7 @@
  *
  * Every endpoint has its own VITE_ env variable in the root .env file.
  */
+
 // ─── Keycloak / Auth ────────────────────────────────────────────────────────
 export const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080';
 export const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'Avis';
